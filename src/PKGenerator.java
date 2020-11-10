@@ -21,7 +21,9 @@ public class PKGenerator
     private int index;
     private final String username = "root";
     private final String pass = "";
-    private ArrayList<String> values;
+    public ArrayList<String> values;
+    public int value;
+    public String title;
 
     PKGenerator()
     {
@@ -39,13 +41,13 @@ public class PKGenerator
             // Ask the how many keys they want
             System.out.println("How many keys do you want to make?: ");
             Scanner howManyKeys = new Scanner(System.in);
-            int value = howManyKeys.nextInt();
+            value = howManyKeys.nextInt();
 
             // Create a name for the table
             System.out.println("Please create your table name using This_Naming_Convention\n\n");
             System.out.println("Name your primary key column: ");
             Scanner columnTitle = new Scanner(System.in);
-            String title = columnTitle.nextLine();
+            this.title = columnTitle.nextLine();
 
             // Create primary keys
             String[] pkLetters = title.split("_");
@@ -60,13 +62,9 @@ public class PKGenerator
             for (; this.index < value + 1; this.index++) {
                 this.values.add(this.generateKeys());
             }
-            this.createTable(title);
-            this.insertIds(title, this.values);
         }
-        else
-        {
-            this.getAllIds();
-        }
+        //          this.getAllIds();
+
     }
 
     // User key function
@@ -84,56 +82,26 @@ public class PKGenerator
             return this.id + this.index;
     }
 
-    // Creates the user table defined by their name
-    public void createTable (String tableName)
+    // Retrieve all of the ID's from a table specified by user input
+    public ArrayList<String> getAllIds (String value)
     {
+        ArrayList<String> keylist = new ArrayList<>();
         try {
             Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/data-generator", username, pass);
-            String createTable = String.format("CREATE TABLE %s (keyList VARCHAR(7) PRIMARY KEY)", tableName);
-            PreparedStatement stat = conn.prepareStatement(createTable);
-            stat.executeUpdate(createTable);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-    }
-
-    // Insert values into a table names after users wish
-    public void insertIds (String tableName, ArrayList<String> ids)
-    {
-        try {
-            Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/data-generator", username, pass);
-            for (String item: ids)
-            {
-                PreparedStatement stat = conn.prepareStatement(String.format("INSERT INTO %s VALUES(?)", tableName));
-                stat.setString(1, item);
-                stat.executeUpdate();
-            }
-            conn.close();
-
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-    }
-
-    // Retrieve all of the ID's specified by user input
-    public void getAllIds ()
-    {
-        System.out.println("Which table do you want to retrieve id's from?: ");
-        Scanner getIds = new Scanner(System.in);
-        String value = getIds.nextLine();
-        try {
-            Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/data-generator", username, pass);
-            PreparedStatement stat = conn.prepareStatement(String.format("SELECT * FROM %s", value));
+            PreparedStatement stat = conn.prepareStatement(String.format("SELECT keyList, first_name, email FROM %s", value));
             stat.executeQuery();
             ResultSet rs = stat.getResultSet();
             while (rs.next()) {
-                System.out.println(rs.getString("keyList"));
+                keylist.add(rs.getString("keyList"));
+                keylist.add(rs.getString("first_name"));
+                keylist.add(rs.getString("email"));
             }
             conn.close();
 
         } catch (SQLException throwables) {
             throwables.printStackTrace();
         }
+        return keylist;
     }
     
     // Testing

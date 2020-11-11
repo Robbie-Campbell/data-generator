@@ -7,7 +7,6 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Scanner;
 
@@ -19,7 +18,7 @@ public class NameGenerator {
     private final String pass = "";
     private String firstName;
     private String lastName;
-    private PKGenerator makeTable;
+    private PKGenerator selectManager;
     public LinkedHashMap<String, String> names;
 
     // An array of names for first and last
@@ -35,17 +34,27 @@ public class NameGenerator {
                 "Ilverez", "Johnson", "Kepler", "Linson", "Montana", "Nishelson", "Organson", "Peterson", "Raymondson",
                 "Stephenson", "Teirson", "Vienna", "Waterson", "Baggins", "ofRivia", "Wynne"};
         this.email = new ArrayList<>();
-        makeTable = new PKGenerator();
-        this.createTable(makeTable.title);
-        this.generateNames();
-        this.insertIds(makeTable.title);
+        System.out.println("Do you need to make keys and a table (y/n): ");
+        Scanner keyMaker = new Scanner(System.in);
+        String answer = keyMaker.nextLine();
+        if (answer.equals("y")) {
+            selectManager = new PKGenerator();
+            selectManager.createTables();
+            selectManager.setValueMax();
+            this.createTable(selectManager.title);
+            this.generateNames();
+            this.insertIds(selectManager.title);
+        }
+        else{
+            System.out.println(selectManager.getAllIds());
+        }
     }
 
     // Assigns random names to each person
     public void generateNames()
     {
         names = new LinkedHashMap<>();
-        for (int i = 0; i <= makeTable.value + 1; i++) {
+        for (int i = 0; i <= selectManager.value + 1; i++) {
             this.firstName = firstNameList[(int) (Math.random() * firstNameList.length)];
             this.lastName = lastNameList[(int) (Math.random() * lastNameList.length)];
             this.names.put(this.firstName, this.lastName);
@@ -73,10 +82,11 @@ public class NameGenerator {
     {
         try {
             Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/data-generator", username, pass);
-            for (int i = 0; i  + 1 < makeTable.value; i++)
+            selectManager.createAllKeys();
+            for (int i = 0; i < selectManager.value; i++)
             {
                 PreparedStatement stat = conn.prepareStatement(String.format("INSERT INTO %s VALUES(?, ?, ?, ?)", tableName));
-                stat.setString(1, makeTable.values.get(i));
+                stat.setString(1, selectManager.values.get(i));
                 String firstName = (String) this.names.keySet().toArray()[i];
                 String lastName = (String) this.names.values().toArray()[i];
                 stat.setString(2, firstName);
@@ -84,7 +94,7 @@ public class NameGenerator {
                 stat.setString(4, firstName + lastName + "@" + "email.com");
                 stat.executeUpdate();
             }
-            System.out.println("Successfully Created Table!");
+            System.out.println("Data has been inserted into " + tableName);
             conn.close();
 
         } catch (SQLException throwables) {
@@ -95,10 +105,8 @@ public class NameGenerator {
     // Testing
     public static void main(String[] args)
     {
-//        NameGenerator start = new NameGenerator();
-        PKGenerator ids = new PKGenerator();
-        for (String id: ids.getAllIds("full_time"))
-            System.out.println(id);
+        NameGenerator start = new NameGenerator();
+//        PKGenerator ids = new PKGenerator();
     }
 
 }

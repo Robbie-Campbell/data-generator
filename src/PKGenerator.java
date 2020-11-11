@@ -19,8 +19,6 @@ public class PKGenerator
 {
     private String id;
     private int index;
-    private final String username = "root";
-    private final String pass = "";
     public ArrayList<String> values;
     public int value;
     public String title;
@@ -30,45 +28,27 @@ public class PKGenerator
         // Define Vars
         this.id = "";
         this.index = 1;
+    }
 
-        //
-        System.out.println("Do you need to make keys (y/n): ");
-        Scanner keyMaker = new Scanner(System.in);
-        String answer = keyMaker.nextLine();
+    public void createTables()
+    {
+        // Create a name for the table
+        System.out.println("Please create your table name using This_Naming_Convention\n\n");
+        System.out.println("Name your table: ");
+        Scanner columnTitle = new Scanner(System.in);
+        this.title = columnTitle.nextLine();
+    }
 
-
-        if (answer.equals("y")) {
-            // Ask the how many keys they want
-            System.out.println("How many keys do you want to make?: ");
-            Scanner howManyKeys = new Scanner(System.in);
-            value = howManyKeys.nextInt();
-
-            // Create a name for the table
-            System.out.println("Please create your table name using This_Naming_Convention\n\n");
-            System.out.println("Name your primary key column: ");
-            Scanner columnTitle = new Scanner(System.in);
-            this.title = columnTitle.nextLine();
-
-            // Create primary keys
-            String[] pkLetters = title.split("_");
-            if (pkLetters.length > 1)
-                this.id = String.valueOf(pkLetters[0].charAt(0)) + pkLetters[1].charAt(0);
-            else
-                this.id = String.valueOf(pkLetters[0].charAt(0));
-
-            this.values = new ArrayList<>();
-
-            // Create the user Keys
-            for (; this.index < value + 1; this.index++) {
-                this.values.add(this.generateKeys());
-            }
-        }
-        //          this.getAllIds();
-
+    public void setValueMax()
+    {
+        // Ask the how many keys they want
+        System.out.println("How many keys do you want to make?: ");
+        Scanner howManyKeys = new Scanner(System.in);
+        value = howManyKeys.nextInt();
     }
 
     // User key function
-    public String generateKeys()
+    private String generateKeys()
     {
         
         // Conditions to make the length of the PK consistent
@@ -82,32 +62,50 @@ public class PKGenerator
             return this.id + this.index;
     }
 
-    // Retrieve all of the ID's from a table specified by user input
-    public ArrayList<String> getAllIds (String value)
+    // Create all primary keys values
+    public void createAllKeys()
     {
+        String[] pkLetters = title.split("_");
+        if (pkLetters.length > 1)
+            this.id = String.valueOf(pkLetters[0].charAt(0)) + pkLetters[1].charAt(0);
+        else
+            this.id = String.valueOf(pkLetters[0].charAt(0));
+
+        this.values = new ArrayList<>();
+
+        // Create the user Keys
+        for (; this.index < value + 1; this.index++) {
+            this.values.add(this.generateKeys());
+        }
+    }
+
+    // Retrieve all of the ID's from a table specified by user input
+    public ArrayList<String> getAllIds ()
+    {
+
+        // Select table to retrieve data from
+        System.out.println("Which table would you like to retrieve data from?: ");
+        Scanner getRequest = new Scanner(System.in);
+        String selectFrom = getRequest.nextLine();
         ArrayList<String> keylist = new ArrayList<>();
+
+        // Add all of the keys from a table into an array list
         try {
+            String username = "root";
+            String pass = "";
             Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/data-generator", username, pass);
-            PreparedStatement stat = conn.prepareStatement(String.format("SELECT keyList, first_name, email FROM %s", value));
+            PreparedStatement stat = conn.prepareStatement(String.format("SELECT keyList FROM %s", selectFrom));
             stat.executeQuery();
             ResultSet rs = stat.getResultSet();
             while (rs.next()) {
                 keylist.add(rs.getString("keyList"));
-                keylist.add(rs.getString("first_name"));
-                keylist.add(rs.getString("email"));
             }
             conn.close();
 
         } catch (SQLException throwables) {
-            throwables.printStackTrace();
+            System.out.println("Table does not exist");
         }
         return keylist;
-    }
-    
-    // Testing
-    public static void main(String[] args)
-    {
-        PKGenerator start = new PKGenerator();
     }
 
 }

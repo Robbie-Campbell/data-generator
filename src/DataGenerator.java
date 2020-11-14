@@ -4,17 +4,18 @@ just create statements, without trying to link to a mysql db, that can come late
  */
 
 import java.sql.*;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-public class NoDB {
+public class DataGenerator {
 
     private final String[] firstNameList, lastNameList, addressLine1, roadTitle, addressLine2;
     private String PKName;
     private int index = 0;
     private ArrayList<String> values;
 
-    public NoDB() {
+    public DataGenerator() {
 
         // Create 2 arrays -- one for first names and one for last names
         this.firstNameList = new String[]{"Marco", "John", "Martin", "Melvin", "Alvin", "Benjamin", "Craig", "Daniel", "Eggbert",
@@ -101,6 +102,14 @@ public class NoDB {
         return String.format("'%s', '%s', '%s'", address1, address2, postcode.toUpperCase());
     }
 
+    // Create monetary values for tables
+    public String generateMoneyValue(int minValue, int maxValue)
+    {
+        DecimalFormat formatToMoney = new DecimalFormat("0.00");
+        double randomValue = minValue + Math.random() * maxValue;
+        return formatToMoney.format(randomValue);
+    }
+
     // Generate a random last name
     public String getLastName()
     {
@@ -108,38 +117,58 @@ public class NoDB {
     }
 
     // Creates a table with listed parameters
-    public String createTable(String tableName, String fk, Boolean name, Boolean personalInfo)
+    public String createTable(String tableName, boolean pk, String[] fk, Boolean name, Boolean personalInfo, ExtraColumns[] moreValues)
     {
-        StringBuilder statement = new StringBuilder(String.format("CREATE TABLE %s (%s", tableName.toLowerCase(),
-                tableName.toLowerCase() + "_id VARCHAR(7) PRIMARY KEY NOT NULL"));
-        if (!fk.equals(""))
+        StringBuilder statement = new StringBuilder(String.format("CREATE TABLE %s (", tableName.toLowerCase()));
+        if (pk)
         {
-            statement.append(",\n").append(fk).append("_id VARCHAR(7) NOT NULL");
+            statement.append("\n").append(tableName.toLowerCase()).append("_id VARCHAR(7) PRIMARY KEY NOT NULL,\n");
+        }
+        if (fk.length > 0)
+        {
+            for (String key: fk)
+                statement.append(key).append("_id VARCHAR(7) NOT NULL,\n");
         }
         if (name)
         {
-            statement.append(",\nfirst_name VARCHAR(20) NOT NULL,\nlast_name VARCHAR(20) NOT NULL,\nemail VARCHAR(50) NOT NULL");
+            statement.append("first_name VARCHAR(20) NOT NULL,\nlast_name VARCHAR(20) NOT NULL,\nemail VARCHAR(50) NOT NULL,\n");
         }
         if (personalInfo)
         {
-            statement.append(",\ncontact_no VARCHAR(11) NOT NULL,\nDOB DATE NOT NULL,\naddress_line_1 VARCHAR(50) NOT NULL,\n" +
-                    "address_line_2 VARCHAR(50) NOT NULL,\npostcode VARCHAR(9) NOT NULL");
+            statement.append("contact_no VARCHAR(11) NOT NULL,\nDOB DATE NOT NULL,\naddress_line_1 VARCHAR(50) NOT NULL,\n" +
+                    "address_line_2 VARCHAR(50) NOT NULL,\npostcode VARCHAR(9) NOT NULL,\n");
         }
-        if (!fk.equals(""))
+        if (moreValues.length > 0)
         {
-            statement.append(String.format(",\nFOREIGN KEY (%s_id) references %s(%s_id)", fk, fk, fk));
+            for (ExtraColumns value: moreValues)
+            {
+                statement.append(String.format("%s %s(%s) %s,\n", value.getColumnName(), value.getDataType(), value.getDataSize(), value.getNullValue()));
+            }
+        }
+        if (fk.length > 0)
+        {
+            for (int i = 0; i < fk.length; ++i) {
+                System.out.println(fk[i]);
+                if (i != fk.length - 1) {
+                    statement.append(String.format("FOREIGN KEY (%s_id) references %s(%s_id),\n", fk[i], fk[i], fk[i]));
+                }
+                else{
+                    statement.append(String.format("FOREIGN KEY (%s_id) references %s(%s_id)", fk[i], fk[i], fk[i]));
+                }
+            }
         }
         statement.append(");");
         return statement.toString();
     }
 
-    // Execute the program, pass in params to decide which parts of the statement you want to include
-    public void insertStatements(String tableTitle, String fk, Boolean name, Boolean personalInfo)
+    // Execute the program, pass in params to decide which parts of the statement you want to include, the default FK
+    // value should be an empty string array thus returning no fks
+    public void insertStatements(String tableTitle, boolean pk, String[] fk, Boolean nameAndEmail, Boolean personalInfo, ExtraColumns[] moreValues)
     {
         this.createTable(tableTitle);
         this.PKName = tableTitle;
-        int numberOfRows = 5;
-        System.out.println(this.createTable(tableTitle, fk, name, personalInfo));
+        int numberOfRows = 3;
+        System.out.println(this.createTable(tableTitle, pk, fk, nameAndEmail, personalInfo, moreValues));
         for (int i = 0; i < numberOfRows; i++)
         {
             this.index++;
@@ -147,28 +176,50 @@ public class NoDB {
             String firstName = this.getFirstName();
             String lastName = this.getLastName();
             String email = generateEmail(firstName, lastName, this.generateKey());
-            String insertStatement = String.format("INSERT INTO %s VALUES ('%s'", tableTitle,
-                    id);
-            if (!fk.equals(""))
+            StringBuilder insertStatement = new StringBuilder(String.format("INSERT INTO %s VALUES ('%s'", tableTitle,
+                    id));
+            if (fk.length > 0)
             {
-                insertStatement += ", '" + this.getAllFKIDs(fk).get(i) + "'";
+                for (String key: fk)
+                    insertStatement.append(", '").append(this.getAllFKIDs(key).get(i)).append("'");
             }
-            if (name)
+            if (nameAndEmail)
             {
-                insertStatement += String.format(", '%s', '%s', '%s'", firstName, lastName, email);
+                insertStatement.append(String.format(", '%s', '%s', '%s'", firstName, lastName, email));
             }
             if (personalInfo)
             {
-                insertStatement += String.format(",'%s', DATE '%s', %s", this.generateContactNo(),
-                        this.generateDOB(), this.generateAddress());
+                insertStatement.append(String.format(",'%s', DATE '%s', %s", this.generateContactNo(),
+                        this.generateDOB(), this.generateAddress()));
             }
-            insertStatement += ");";
+            if (moreValues.length > 0)
+            {
+                for (ExtraColumns value: moreValues)
+                {
+                    switch (value.getDataType()) {
+                        case "VARCHAR":
+                            insertStatement.append(String.format(", '%s'", value.getInsertDataType()));
+                            break;
+                        case "INT":
+                        case "DECIMAL":
+                            insertStatement.append(", ").append(value.getInsertDataType());
+                            break;
+                        case "DATE":
+                            insertStatement.append(String.format(", DATE '%s", value.getInsertDataType()));
+                            break;
+                    }
+                }
+            }
+            insertStatement.append(");");
             System.out.println(insertStatement);
-            commitPKToDB(tableTitle, id);
+            if (pk) {
+                commitPKToDB(tableTitle, id);
+            }
         }
+        System.out.println("\n");
     }
 
-    // Creates the table for all of the primary keys of this type
+    // Creates the table for all of the primary keys of this type.
     public void createTable (String tableName) {
         try {
             Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/data-generator", "root", "");
@@ -216,9 +267,11 @@ public class NoDB {
         return allIds;
     }
 
+    // Testing
     public static void main(String[] args)
     {
-        NoDB start = new NoDB();
-        start.insertStatements("Staff_Full", "Student", true, true);
+        DataGenerator start = new DataGenerator();
+        start.insertStatements("Staff", true, new String[]{}, false, false,
+                new ExtraColumns[]{new ExtraColumns("income", "DECIMAL", "7,2", true, start.generateMoneyValue(200, 1000))});
     }
 }

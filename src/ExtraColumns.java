@@ -5,7 +5,7 @@ public class ExtraColumns {
     private final String columnName;
     private final String dataType;
     private final String dataSize;
-    private final String insertDataType;
+    private String insertDataType;
     private final String nullValue;
 
     public ExtraColumns(String columnName, String dataType, String dataSize, boolean nullable, String insertDataType)
@@ -42,6 +42,6 @@ public class ExtraColumns {
     }
 
     public String getInsertDataType() {
-        return insertDataType;
+        return this.insertDataType;
     }
 }

@@ -157,6 +157,7 @@ public class DataGenerator {
                 }
             }
         }
+        statement.setLength(statement.length() - 2);
         statement.append(");");
         return statement.toString();
     }
@@ -176,20 +177,22 @@ public class DataGenerator {
             String firstName = this.getFirstName();
             String lastName = this.getLastName();
             String email = generateEmail(firstName, lastName, this.generateKey());
-            StringBuilder insertStatement = new StringBuilder(String.format("INSERT INTO %s VALUES ('%s'", tableTitle,
-                    id));
+            StringBuilder insertStatement = new StringBuilder(String.format("INSERT INTO %s VALUES (", tableTitle));
+            if (pk) {
+                insertStatement.append("'id',");
+            }
             if (fk.length > 0)
             {
                 for (String key: fk)
-                    insertStatement.append(", '").append(this.getAllFKIDs(key).get(i)).append("'");
+                    insertStatement.append("'").append(this.getAllFKIDs(key).get(i)).append("',");
             }
             if (nameAndEmail)
             {
-                insertStatement.append(String.format(", '%s', '%s', '%s'", firstName, lastName, email));
+                insertStatement.append(String.format("'%s', '%s', '%s', ", firstName, lastName, email));
             }
             if (personalInfo)
             {
-                insertStatement.append(String.format(",'%s', DATE '%s', %s", this.generateContactNo(),
+                insertStatement.append(String.format("'%s', DATE '%s', %s, ", this.generateContactNo(),
                         this.generateDOB(), this.generateAddress()));
             }
             if (moreValues.length > 0)
@@ -198,18 +201,19 @@ public class DataGenerator {
                 {
                     switch (value.getDataType()) {
                         case "VARCHAR":
-                            insertStatement.append(String.format(", '%s'", value.getInsertDataType()));
+                            insertStatement.append(String.format("'%s', ", value.getInsertDataType()));
                             break;
                         case "INT":
                         case "DECIMAL":
-                            insertStatement.append(", ").append(value.getInsertDataType());
+                            insertStatement.append(value.getInsertDataType()).append(", ");
                             break;
                         case "DATE":
-                            insertStatement.append(String.format(", DATE '%s", value.getInsertDataType()));
+                            insertStatement.append(String.format("DATE '%s, ", value.getInsertDataType()));
                             break;
                     }
                 }
             }
+            insertStatement.setLength(insertStatement.length() - 2);
             insertStatement.append(");");
             System.out.println(insertStatement);
             if (pk) {
@@ -271,7 +275,7 @@ public class DataGenerator {
     public static void main(String[] args)
     {
         DataGenerator start = new DataGenerator();
-        start.insertStatements("Staff", true, new String[]{}, false, false,
+        start.insertStatements("Staff", false, new String[]{}, false, false,
                 new ExtraColumns[]{new ExtraColumns("income", "DECIMAL", "7,2", true, start.generateMoneyValue(200, 1000))});
     }
 }

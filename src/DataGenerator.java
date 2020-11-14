@@ -12,7 +12,7 @@ public class DataGenerator {
 
     private final String[] firstNameList, lastNameList, addressLine1, roadTitle, addressLine2;
     private String PKName;
-    private int index = 0;
+    private static int index;
     private ArrayList<String> values;
 
     public DataGenerator() {
@@ -35,12 +35,13 @@ public class DataGenerator {
         this.roadTitle = new String[]{"Provost", "Drive", "Close", "Road", "Avenue", "Street", "Gardens", "Grove", "Lane"};
 
         this.addressLine2 = new String[]{"Dorset", "Somerset", "Heartfordshire", "Essex"};
+        index = this.getCurrentIndex();
     }
 
     // Create a random email
     public String generateEmail(String first, String last, String id)
     {
-        return first + last + id + "@email.com";
+        return first.toLowerCase() + last.toLowerCase() + id.toLowerCase() + "@email.com";
     }
 
     // Assign a random contact number
@@ -59,16 +60,16 @@ public class DataGenerator {
     private String generateKey()
     {
         // Conditions to make the length of the PK consistent
-        if (this.index < 10)
-            return this.getIDName() + "0000" + this.index;
-        else if (this.index < 100)
-            return this.getIDName() + "000" + this.index;
-        else if (this.index < 1000)
-            return this.getIDName() + "00" + this.index;
-        else if (this.index < 10000)
-            return this.getIDName() + "0" + this.index;
+        if (index < 10)
+            return this.getIDName() + "0000" + index;
+        else if (index < 100)
+            return this.getIDName() + "000" + index;
+        else if (index < 1000)
+            return this.getIDName() + "00" + index;
+        else if (index < 10000)
+            return this.getIDName() + "0" + index;
         else
-            return this.getIDName() + this.index;
+            return this.getIDName() + index;
     }
 
     // Create all primary keys values
@@ -79,10 +80,10 @@ public class DataGenerator {
         if (pkLetters.length > 1)
             id = String.valueOf(pkLetters[0].charAt(0)) + pkLetters[1].charAt(0);
         else {
-            id = String.valueOf(pkLetters[0].charAt(0));
+            id = String.valueOf(pkLetters[0].charAt(0)) + pkLetters[0].charAt(1) + pkLetters[0].charAt(2);
         }
 
-        return id;
+        return id.toUpperCase();
     }
 
     // Generate a random first name
@@ -122,12 +123,12 @@ public class DataGenerator {
         StringBuilder statement = new StringBuilder(String.format("CREATE TABLE %s (", tableName.toLowerCase()));
         if (pk)
         {
-            statement.append("\n").append(tableName.toLowerCase()).append("_id VARCHAR(7) PRIMARY KEY NOT NULL,\n");
+            statement.append("\n").append(tableName.toLowerCase()).append("_id VARCHAR(8) PRIMARY KEY NOT NULL,\n");
         }
         if (fk.length > 0)
         {
             for (String key: fk)
-                statement.append(key).append("_id VARCHAR(7) NOT NULL,\n");
+                statement.append(key).append("_id VARCHAR(8) NOT NULL,\n");
         }
         if (name)
         {
@@ -142,24 +143,41 @@ public class DataGenerator {
         {
             for (ExtraColumns value: moreValues)
             {
-                statement.append(String.format("%s %s(%s) %s,\n", value.getColumnName(), value.getDataType(), value.getDataSize(), value.getNullValue()));
+                if (value.getDataType().equals("DATE"))
+                    statement.append(String.format("%s %s %s %s,\n", value.getColumnName(), value.getDataType(), value.getDataSize(), value.getNullValue()));
+                else
+                    statement.append(String.format("%s %s (%s) %s,\n", value.getColumnName(), value.getDataType(), value.getDataSize(), value.getNullValue()));
             }
         }
         if (fk.length > 0)
         {
-            for (int i = 0; i < fk.length; ++i) {
-                System.out.println(fk[i]);
-                if (i != fk.length - 1) {
-                    statement.append(String.format("FOREIGN KEY (%s_id) references %s(%s_id),\n", fk[i], fk[i], fk[i]));
-                }
-                else{
-                    statement.append(String.format("FOREIGN KEY (%s_id) references %s(%s_id)", fk[i], fk[i], fk[i]));
-                }
+            for (String s : fk) {
+                statement.append(String.format("FOREIGN KEY (%s_id) references %s(%s_id),\n", s, s, s));
             }
         }
         statement.setLength(statement.length() - 2);
         statement.append(");");
         return statement.toString();
+    }
+
+    // Returns the new index as the total number of rows in the information schema (avoids duplicate data)
+    public int getCurrentIndex()
+    {
+        try {
+            Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/data-generator", "root", "");
+            PreparedStatement stat = conn.prepareStatement("SELECT SUM(TABLE_ROWS) as TOTAL FROM INFORMATION_SCHEMA.TABLES\n" +
+                    "   WHERE TABLE_SCHEMA = 'data-generator';");
+            stat.executeQuery();
+            ResultSet rs = stat.getResultSet();
+            rs.next();
+            int total_rows = rs.getInt("TOTAL");
+            rs.close();
+            return total_rows;
+        }catch (SQLException e)
+        {
+            e.printStackTrace();
+        }
+        return 0;
     }
 
     // Execute the program, pass in params to decide which parts of the statement you want to include, the default FK
@@ -172,14 +190,14 @@ public class DataGenerator {
         System.out.println(this.createTable(tableTitle, pk, fk, nameAndEmail, personalInfo, moreValues));
         for (int i = 0; i < numberOfRows; i++)
         {
-            this.index++;
+            index = this.getCurrentIndex();
             String id = this.generateKey();
             String firstName = this.getFirstName();
             String lastName = this.getLastName();
             String email = generateEmail(firstName, lastName, this.generateKey());
             StringBuilder insertStatement = new StringBuilder(String.format("INSERT INTO %s VALUES (", tableTitle));
             if (pk) {
-                insertStatement.append("'id',");
+                insertStatement.append(String.format("'%s',", id));
             }
             if (fk.length > 0)
             {
@@ -208,7 +226,7 @@ public class DataGenerator {
                             insertStatement.append(value.getInsertDataType()).append(", ");
                             break;
                         case "DATE":
-                            insertStatement.append(String.format("DATE '%s, ", value.getInsertDataType()));
+                            insertStatement.append(String.format("DATE '%s', ", value.getInsertDataType()));
                             break;
                     }
                 }
@@ -227,9 +245,10 @@ public class DataGenerator {
     public void createTable (String tableName) {
         try {
             Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/data-generator", "root", "");
-            String createTable = String.format("CREATE TABLE %s (keyList VARCHAR(7) PRIMARY KEY);", tableName);
+            String createTable = String.format("CREATE TABLE %s (keyList VARCHAR(8) PRIMARY KEY);", tableName);
             PreparedStatement stat = conn.prepareStatement(createTable);
             stat.executeUpdate(createTable);
+            conn.close();
         } catch (SQLException throwables) {
             throwables.printStackTrace();
         }
@@ -275,7 +294,8 @@ public class DataGenerator {
     public static void main(String[] args)
     {
         DataGenerator start = new DataGenerator();
-        start.insertStatements("Staff", false, new String[]{}, false, false,
-                new ExtraColumns[]{new ExtraColumns("income", "DECIMAL", "7,2", true, start.generateMoneyValue(200, 1000))});
+        start.insertStatements("Student", true, new String[]{}, true, true,
+                new ExtraColumns[]{new ExtraColumns("date_of_start", "DATE", "", false, start.generateDOB()),
+                new ExtraColumns("leaving_date", "DATE", "", true, start.generateDOB())});
     }
 }

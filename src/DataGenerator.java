@@ -13,6 +13,7 @@ public class DataGenerator {
     private final String[] firstNameList, lastNameList, addressLine1, roadTitle, addressLine2;
     private String PKName;
     private static int index;
+    boolean createTable = true;
     private ArrayList<String> values;
 
     public DataGenerator() {
@@ -50,15 +51,17 @@ public class DataGenerator {
         return "07" + (int) (100000000 + Math.random() * 100000000);
     }
 
-    public String generateDOB()
+    // Generate a random date value with a lowest value for day month and year
+    public String generateDate(int minYear, int minMonth, int minDay)
     {
-        return  (int) (1920 + Math.random() * 85) + "-" + (int) (1 + Math.random() * 12) + "-" +
-                (int) (1 + Math.random() * 28);
+        return  (int) (minYear + Math.random() * (2020 - minYear)) + "-" + (int) (minMonth + Math.random() * (12 - minMonth)) + "-" +
+                (int) (minDay + Math.random() * (28 - minDay));
     }
 
     // User key function
     private String generateKey()
     {
+        index = index + 1;
         // Conditions to make the length of the PK consistent
         if (index < 10)
             return this.getIDName() + "0000" + index;
@@ -156,7 +159,7 @@ public class DataGenerator {
             }
         }
         statement.setLength(statement.length() - 2);
-        statement.append(");");
+        statement.append("\n);");
         return statement.toString();
     }
 
@@ -184,61 +187,63 @@ public class DataGenerator {
     // value should be an empty string array thus returning no fks
     public void insertStatements(String tableTitle, boolean pk, String[] fk, Boolean nameAndEmail, Boolean personalInfo, ExtraColumns[] moreValues)
     {
-        this.createTable(tableTitle);
-        this.PKName = tableTitle;
-        int numberOfRows = 3;
-        System.out.println(this.createTable(tableTitle, pk, fk, nameAndEmail, personalInfo, moreValues));
-        for (int i = 0; i < numberOfRows; i++)
+        if (createTable) {
+            this.createTable(tableTitle);
+            this.PKName = tableTitle;
+            System.out.println(this.createTable(tableTitle, pk, fk, nameAndEmail, personalInfo, moreValues));
+        }
+        index = this.getCurrentIndex();
+        String id = this.generateKey();
+        String firstName = this.getFirstName();
+        String lastName = this.getLastName();
+        String email = generateEmail(firstName, lastName, this.generateKey());
+        StringBuilder insertStatement = new StringBuilder(String.format("INSERT INTO %s VALUES (", tableTitle));
+        if (pk) {
+            insertStatement.append(String.format("'%s',", id));
+        }
+        if (fk.length > 0)
         {
-            index = this.getCurrentIndex();
-            String id = this.generateKey();
-            String firstName = this.getFirstName();
-            String lastName = this.getLastName();
-            String email = generateEmail(firstName, lastName, this.generateKey());
-            StringBuilder insertStatement = new StringBuilder(String.format("INSERT INTO %s VALUES (", tableTitle));
-            if (pk) {
-                insertStatement.append(String.format("'%s',", id));
-            }
-            if (fk.length > 0)
-            {
-                for (String key: fk)
-                    insertStatement.append("'").append(this.getAllFKIDs(key).get(i)).append("',");
-            }
-            if (nameAndEmail)
-            {
-                insertStatement.append(String.format("'%s', '%s', '%s', ", firstName, lastName, email));
-            }
-            if (personalInfo)
-            {
-                insertStatement.append(String.format("'%s', DATE '%s', %s, ", this.generateContactNo(),
-                        this.generateDOB(), this.generateAddress()));
-            }
-            if (moreValues.length > 0)
-            {
-                for (ExtraColumns value: moreValues)
-                {
-                    switch (value.getDataType()) {
-                        case "VARCHAR":
-                            insertStatement.append(String.format("'%s', ", value.getInsertDataType()));
-                            break;
-                        case "INT":
-                        case "DECIMAL":
-                            insertStatement.append(value.getInsertDataType()).append(", ");
-                            break;
-                        case "DATE":
-                            insertStatement.append(String.format("DATE '%s', ", value.getInsertDataType()));
-                            break;
-                    }
-                }
-            }
-            insertStatement.setLength(insertStatement.length() - 2);
-            insertStatement.append(");");
-            System.out.println(insertStatement);
-            if (pk) {
-                commitPKToDB(tableTitle, id);
+            int current = 0;
+            for (String key: fk) {
+                current++;
+                insertStatement.append("'").append(this.getAllFKIDs(key).get(current)).append("',");
             }
         }
-        System.out.println("\n");
+        if (nameAndEmail)
+        {
+            insertStatement.append(String.format("'%s', '%s', '%s', ", firstName, lastName, email));
+        }
+        if (personalInfo)
+        {
+            insertStatement.append(String.format("'%s', DATE '%s', %s, ", this.generateContactNo(),
+                    this.generateDate(1960, 1, 1), this.generateAddress()));
+        }
+        if (moreValues.length > 0)
+        {
+            for (ExtraColumns value: moreValues)
+            {
+                switch (value.getDataType()) {
+                    case "VARCHAR":
+                        insertStatement.append(String.format("'%s', ", value.getInsertDataType()));
+                        break;
+                    case "INT":
+                    case "DECIMAL":
+                        insertStatement.append(value.getInsertDataType()).append(", ");
+                        break;
+                    case "DATE":
+                        insertStatement.append(String.format("DATE '%s', ", value.getInsertDataType()));
+                        break;
+                }
+            }
+        }
+        insertStatement.setLength(insertStatement.length() - 2);
+        insertStatement.append(");");
+        System.out.println(insertStatement);
+        if (pk) {
+            commitPKToDB(tableTitle, id);
+        }
+
+        createTable = false;
     }
 
     // Creates the table for all of the primary keys of this type.
@@ -294,8 +299,13 @@ public class DataGenerator {
     public static void main(String[] args)
     {
         DataGenerator start = new DataGenerator();
-        start.insertStatements("Student", true, new String[]{}, true, true,
-                new ExtraColumns[]{new ExtraColumns("date_of_start", "DATE", "", false, start.generateDOB()),
-                new ExtraColumns("leaving_date", "DATE", "", true, start.generateDOB())});
+        int numberOfRows = 5;
+
+        // Redefine the numberOfRows variables to generate more or less data
+        for (int i = 0; i < numberOfRows; i++) {
+            start.insertStatements("Student", true, new String[]{}, true, true,
+                    new ExtraColumns[]{new ExtraColumns("date_of_start", "DATE", "", false, start.generateDate(2010, 1, 1)),
+                            new ExtraColumns("income", "DECIMAL", "7,2", true, start.generateMoneyValue(1000, 5000))});
+        }
     }
 }

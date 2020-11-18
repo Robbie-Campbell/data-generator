@@ -193,7 +193,7 @@ public class DataGenerator {
 
     // Execute the program, pass in params to decide which parts of the statement you want to include, the default FK
     // value should be an empty string array thus returning no fks
-    public void insertStatements(String tableTitle, boolean pk, String[] fk, Boolean nameAndEmail, Boolean personalInfo, ExtraColumn[] moreValues)
+    public void insertStatements(String tableTitle, boolean pk, String[] fk, boolean getRandomForeignKeys, boolean nameAndEmail, boolean personalInfo, ExtraColumn[] moreValues)
     {
         this.PKName = tableTitle;
         index = this.getCurrentIndex();
@@ -205,12 +205,17 @@ public class DataGenerator {
         if (pk) {
             insertStatement.append(String.format("'%s',", id));
         }
-        if (fk.length > 0)
+        if (fk.length > 0 && !getRandomForeignKeys)
         {
             for (String key: fk) {
                 insertStatement.append("'").append(this.getAllFKIDs(key).get(this.current)).append("',");
             }
             this.current ++;
+        }
+        else if (fk.length > 0){
+            for (String key: fk) {
+                    insertStatement.append("'").append(this.getAllFKIDs(key).get((int) (Math.random() * this.getAllFKIDs(key).size()))).append("', ");
+            }
         }
         if (nameAndEmail)
         {
@@ -333,89 +338,134 @@ public class DataGenerator {
                 new ExtraColumn("meeting_bonus", "DECIMAL", "6,2", false)}));
 
         // Staff Absence table
-        System.out.println(start.generateTable("Absence", false, new String[]{"Staff"}, false, false, new
-                ExtraColumn[]{
+        System.out.println(start.generateTable("Absence", false, new String[]{"Staff"}, false, false,
+                new ExtraColumn[]{
                 new ExtraColumn("date_of_leave", "DATE", "", false, start.generateDate(2019, 4, 1, 2020, 1, 3)),
                 new ExtraColumn("date_of_return", "DATE", "", false, start.generateDate(2019, 4, 1, 2019, 1,3 )),
                 new ExtraColumn("duration_of_absence", "INT", "2", false, "0"),
                 new ExtraColumn("details_of_absence", "VARCHAR", "255", false, "Lorem Ipsum Dolor Dest")}));
 
+        // Create the skills table
+        System.out.println(start.generateTable("Skillset", true, new String[]{}, false, false,
+                new ExtraColumn[]{
+                new ExtraColumn("skill_worth", "DECIMAL", "6,2", false, start.generateMoneyValue(100,200)),
+                new ExtraColumn("skill_name", "VARCHAR", "20", false)}));
+
+        // Generate random skills held values
+        System.out.println(start.generateTable("Skills_Held", false, new String[]{"Skillset", "Staff"}, false, false, new ExtraColumn[]{}));
+
+        // Create any triggers for the tables
+        System.out.println(
+        "CREATE TRIGGER create_staff_pay\n" +
+        "AFTER INSERT ON staff\n" +
+                "FOR EACH ROW\n" +
+        "INSERT\n" +
+            "staff_wage\n" +
+        "SET\n" +
+            "staff_wage.staff_id = NEW.staff_id,\n" +
+            "staff_wage.month = CURDATE(),\n" +
+            "staff_wage.absence_deduction = 0,\n" +
+            "staff_wage.tax_for_month = NEW.gross_salary_pm * 0.2,\n" +
+            "staff_wage.meeting_bonus = (SELECT COUNT(*) from staff) * 5,\n" +
+            "staff_wage.net_month_salary = (NEW.gross_salary_pm + staff_wage.meeting_bonus) - staff_wage.tax_for_month - staff_wage.absence_deduction;\n\n" +
+
+        "CREATE TRIGGER update_absence_deduction\n" +
+        "AFTER INSERT ON absence\n" +
+        "FOR EACH ROW\n" +
+        "UPDATE\n" +
+            "staff, staff_wage\n" +
+        "SET\n" +
+            "staff_wage.absence_deduction = Round((staff.gross_salary_pm * 12) / 365 * (SELECT COUNT(duration_of_absence) FROM absence WHERE NEW.staff_id = staff.staff_id AND NEW.duration_of_absence > 2))\n\n" +
+        "WHERE\n" +
+            "staff.staff_id = staff_wage.staff_id\n" +
+        "AND\n" +
+            "staff.staff_id = NEW.staff_id;\n\n" +
+
+        "CREATE TRIGGER update_skill_bonus\n" +
+        "AFTER INSERT ON skills_held\n" +
+        "FOR EACH ROW\n" +
+        "UPDATE\n" +
+            "non_academic, skillset, skills_held\n" +
+        "SET\n" +
+            "non_academic.skill_bonus = non_academic.skill_bonus + skillset.skill_worth\n" +
+        "WHERE\n" +
+            "NEW.skillset_id = skillset.skillset_id\n" +
+                "AND\n" +
+            "NEW.staff_id = non_academic.staff_id;\n\n" +
+
+        "CREATE TRIGGER update_gross_monthly_salary\n" +
+        "AFTER UPDATE ON non_academic\n" +
+        "FOR EACH ROW\n" +
+        "UPDATE\n" +
+            "staff, department\n" +
+        "SET\n" +
+            "staff.gross_salary_pm = NEW.skill_bonus + Round(department.department_salary_pa / 12)\n" +
+        "WHERE\n" +
+            "NEW.department_id = department.department_id\n" +
+        "AND\n" +
+            "NEW.staff_id = staff.staff_id;\n\n"
+        );
+
+
         ///////////////////////////////////////////////// GENERATE ALL DATA ////////////////////////////////////////////
 
         // Generate staff data
         for (int i = 0; i < 5; i++) {
-            start.insertStatements("Staff", true, new String[]{},  true, true,
+            start.insertStatements("Staff", true, new String[]{}, false,  true, true,
                     new ExtraColumn[]{
                     new ExtraColumn("role", "VARCHAR", "10", false, start.getRandomRole(new String[]{"HOD", "Teacher"})),
-                    new ExtraColumn("gross_salary_pm", "DECIMAL", "6,2", false, start.generateMoneyValue(200, 1000)),
+                    new ExtraColumn("gross_salary_pm", "DECIMAL", "6,2", false, start.generateMoneyValue(100, 1000)),
                     new ExtraColumn("is_absent", "TINYINT", "1", false, "0")});
         }
 
         // Generate department data
         for (int i = 0; i < 5; i++) {
-            start.insertStatements("Department", true, new String[]{}, false, false,
+            start.insertStatements("Department", true, new String[]{}, false, false, false,
                     new ExtraColumn[]{
                     new ExtraColumn("department_name", "VARCHAR", "10", false, "Admin"),
-                    new ExtraColumn("department_salary_pa", "DECIMAL", "7,2", false, start.generateMoneyValue(20000, 40000))});
+                    new ExtraColumn("department_salary_pa", "DECIMAL", "7,2", false, start.generateMoneyValue(10000, 60000))});
         }
 
         // Generate non academic data data
         for (int i = 0; i < 5; i++) {
-            start.insertStatements("Non_Academic", false, new String[]{"Staff", "Department"}, false, false,
+            start.insertStatements("Non_Academic", false, new String[]{"Staff", "Department"}, false, false, false,
                     new ExtraColumn[]{
-                    new ExtraColumn("skill_bonus", "DECIMAL", "6,2", true, start.generateMoneyValue(0,120))});
+                    new ExtraColumn("skill_bonus", "DECIMAL", "6,2", true, "0")});
         }
 
         // Generate absence data
         start.current = 0;
-        for (int i = 0; i < 5; i++){
-            start.insertStatements("Absence", false, new String[]{"Staff"}, false, false,
+        for (int i = 0; i < 10; i++){
+            start.insertStatements("Absence", false, new String[]{"Staff"}, true, false, false,
                     new ExtraColumn[]{
                     new ExtraColumn("date_of_leave", "DATE", "", false, start.generateDate(2019, 4, 1, 2020, 1, 3)),
                     new ExtraColumn("date_of_return", "DATE", "", false, start.generateDate(2019, 4, 1, 2019, 1,3 )),
                     new ExtraColumn("duration_of_absence", "INT", "2", false, String.valueOf((int) (Math.random() * 5))),
                     new ExtraColumn("details_of_absence", "VARCHAR", "255", false, "Lorem Ipsum Dolor Dest")});
         }
+
+        // Generate a skills table
+        String[] skills = {"Typing", "Councilling", "Wrestling", "Fighting", "Gun"};
+        for (int i = 0; i < 5; i++)
+        {
+            start.insertStatements("Skillset", true, new String[]{}, false, false, false,
+                    new ExtraColumn[]{
+                            new ExtraColumn("skill_worth", "DECIMAL", "6,2", false, start.generateMoneyValue(100,200)),
+                            new ExtraColumn("skill_name", "VARCHAR", "20", false, skills[i])});
+        }
+
+        // Generate a skills held table
+        start.current = 0;
+        for (int i = 0; i < 10; i++)
+        {
+            start.insertStatements("Skills_Held", false, new String[]{"Skillset", "Staff"}, true, false, false,
+                    new ExtraColumn[]{});
+        }
     }
 }
 
 /*
-DROP TRIGGER create_staff_pay;
-CREATE TRIGGER create_staff_pay
-AFTER INSERT ON staff
-FOR EACH ROW
-INSERT
-	staff_wage
-SET
-	staff_wage.staff_id = NEW.staff_id,
-    staff_wage.month = CURDATE(),
-    staff_wage.absence_deduction = 40.00,
-    staff_wage.tax_for_month = NEW.gross_salary_pm * 0.2,
-    staff_wage.meeting_bonus = (SELECT COUNT(*) from staff) * 5,
-    staff_wage.net_month_salary = (NEW.gross_salary_pm + staff_wage.meeting_bonus) - staff_wage.tax_for_month - staff_wage.absence_deduction;
-
-SELECT * FROM staff_wage;
-*/
-
-/*
-DROP TRIGGER update_absence_deduction;
-CREATE TRIGGER update_absence_deduction
-AFTER INSERT ON absence
-FOR EACH ROW
-UPDATE
-	staff_wage
-SET
-	staff_wage.absence_deduction = staff_wage.absence_deduction + 5
-WHERE
-	staff_wage.staff_id = NEW.staff_id
-AND
-	NEW.duration_of_absence > 2;
- */
-
-/*
-INSERT INTO Staff VALUES ('STA00001','Kevin', 'Kepler', 'kevinkeplersta00002@email.com', '07100273682', DATE '2012-10-21', 'Lincoln Drive', 'Dorset', 'LI15 3NC', 'HOD', 659.41, 0);
-INSERT INTO Staff VALUES ('STA00002','Nina', 'Waterson', 'ninawatersonsta00003@email.com', '07118743393', DATE '2010-7-6', 'Water Lane', 'Heartfordshire', 'WA4 11TE', 'HOD', 209.14, 0);
-INSERT INTO Staff VALUES ('STA00003','Lebron', 'Granada', 'lebrongranadasta00004@email.com', '07137697265', DATE '1977-5-2', 'Ipsum Avenue', 'Somerset', 'IP9 26SU', 'HOD', 817.87, 0);
-INSERT INTO Staff VALUES ('STA00004','Natalie', 'Peterson', 'nataliepetersonsta00005@email.com', '07167860819', DATE '2005-9-10', 'Cribbage Grove', 'Dorset', 'CR19 8IB', 'HOD', 342.30, 0);
-INSERT INTO Staff VALUES ('STA00005','Craig', 'Granada', 'craiggranadasta00006@email.com', '07194730201', DATE '1964-3-1', 'Fishbrook Avenue', 'Somerset', 'FI28 25SH', 'Headmaster', 1113.74, 0);
+drop trigger create_staff_pay;
+drop trigger update_absence_deduction;
+drop trigger update_skill_bonus;
  */

@@ -348,11 +348,19 @@ public class DataGenerator {
         // Create the skills table
         System.out.println(start.generateTable("Skillset", true, new String[]{}, false, false,
                 new ExtraColumn[]{
-                new ExtraColumn("skill_worth", "DECIMAL", "6,2", false, start.generateMoneyValue(100,200)),
+                new ExtraColumn("skill_worth", "DECIMAL", "6,2", false),
                 new ExtraColumn("skill_name", "VARCHAR", "20", false)}));
 
-        // Generate random skills held values
+        // Generate skills held values
         System.out.println(start.generateTable("Skills_Held", false, new String[]{"Skillset", "Staff"}, false, false, new ExtraColumn[]{}));
+
+        // Generate academic staff table
+        System.out.println(start.generateTable("Academic", false, new String[]{"Staff"}, false, false,
+                new ExtraColumn[]{
+                new ExtraColumn("curriculum_area", "VARCHAR", "20", false),
+                new ExtraColumn("teacher_level", "VARCHAR", "10", false),
+                new ExtraColumn("gross_salary_pa", "DECIMAL", "7,2", false)
+            }));
 
         // Create any triggers for the tables
         System.out.println(
@@ -460,6 +468,15 @@ public class DataGenerator {
         {
             start.insertStatements("Skills_Held", false, new String[]{"Skillset", "Staff"}, true, false, false,
                     new ExtraColumn[]{});
+        }
+
+        // Generate non academic data data
+        for (int i = 0; i < 5; i++) {
+            start.insertStatements("Academic", false, new String[]{"Staff"}, true, false, false,
+                    new ExtraColumn[]{
+                    new ExtraColumn("curriculum_area", "VARCHAR", "20", false, start.getRandomRole(new String[]{"Computing", "English", "Maths"})),
+                    new ExtraColumn("teacher_level", "VARCHAR", "10", false, start.getRandomRole(new String[]{"1", "2", "3"})),
+                    new ExtraColumn("gross_salary_pa", "DECIMAL", "7,2", false, start.generateMoneyValue(10000, 20000))});
         }
     }
 }

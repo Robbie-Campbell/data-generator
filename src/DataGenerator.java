@@ -12,6 +12,9 @@ public class DataGenerator {
     private final String[] firstNameList, lastNameList, addressLine1, roadTitle, addressLine2;
     private String PKName;
     private static int index;
+    private static final String pass = System.getenv("javapass");
+    private static final String user = "root";
+    private static final String dbName = "data-generator";
     int current = 0;
 
     public DataGenerator() {
@@ -57,6 +60,15 @@ public class DataGenerator {
         int maximumDay = maximum.length == 3 ? maximum[2] : 12 - minDay;
         return  (int) (minYear + Math.random() * maximumYear) + "-" + (int) (minMonth + Math.random() * maximumMonth) + "-" +
                 (int) (minDay + Math.random() * maximumDay);
+    }
+
+    // Generate a random time
+    public String generateTime()
+    {
+        int hour = (int) ( 8 + Math.random() * 6);
+        int min = ((int) (Math.random() * 60));
+        return String.format("%d:%d:00", hour, min);
+
     }
 
     // User key function
@@ -147,7 +159,7 @@ public class DataGenerator {
         {
             for (ExtraColumn value: moreValues)
             {
-                if (value.getDataType().equals("DATE"))
+                if (value.getDataType().equals("DATE") || value.getDataType().equals("TIME"))
                     statement.append(String.format("%s %s %s %s,\n", value.getColumnName(), value.getDataType(), value.getDataSize(), value.getNullValue()));
                 else
                     statement.append(String.format("%s %s (%s) %s,\n", value.getColumnName(), value.getDataType(), value.getDataSize(), value.getNullValue()));
@@ -169,7 +181,7 @@ public class DataGenerator {
     public int getCurrentIndex()
     {
         try {
-            Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/data-generator", "root", "");
+            Connection conn = DriverManager.getConnection("jdbc:mysql://127.0.0.1:3306/" + dbName, user, pass);
             PreparedStatement stat = conn.prepareStatement("SELECT SUM(TABLE_ROWS) as TOTAL FROM INFORMATION_SCHEMA.TABLES\n" +
                     "   WHERE TABLE_SCHEMA = 'data-generator';");
             stat.executeQuery();
@@ -186,14 +198,18 @@ public class DataGenerator {
     }
 
     // Enter a set of values and a random value with be returned
-    public String getRandomRole(String[] roles)
+    public String getRandomValueFromArray(String[] roles)
     {
         return roles[(int) (Math.random() * roles.length)];
     }
 
+    // Get a value of one or zero
+    public String getRandomTinyInt () {return String.valueOf((int) (Math.random() * 1)); }
+
     // Execute the program, pass in params to decide which parts of the statement you want to include, the default FK
     // value should be an empty string array thus returning no fks
-    public void insertStatements(String tableTitle, boolean pk, String[] fk, boolean getRandomForeignKeys, boolean nameAndEmail, boolean personalInfo, ExtraColumn[] moreValues)
+    public void insertStatements(String tableTitle, boolean pk, String[] fk, boolean getRandomForeignKeys, int startingFK,
+                                 boolean nameAndEmail, boolean personalInfo, ExtraColumn[] moreValues)
     {
         this.PKName = tableTitle;
         index = this.getCurrentIndex();
@@ -208,7 +224,7 @@ public class DataGenerator {
         if (fk.length > 0 && !getRandomForeignKeys)
         {
             for (String key: fk) {
-                insertStatement.append("'").append(this.getAllFKIDs(key).get(this.current)).append("',");
+                insertStatement.append("'").append(this.getAllFKIDs(key).get(this.current + startingFK)).append("',");
             }
             this.current ++;
         }
@@ -224,7 +240,7 @@ public class DataGenerator {
         if (personalInfo)
         {
             insertStatement.append(String.format("'%s', DATE '%s', %s, ", this.generateContactNo(),
-                    this.generateDate(1960, 1, 1), this.generateAddress()));
+                    this.generateDate(1960, 1, 1, 1980, 11, 28), this.generateAddress()));
         }
         if (moreValues.length > 0)
         {
@@ -233,6 +249,7 @@ public class DataGenerator {
                 switch (value.getDataType()) {
                     case "VARCHAR":
                     case "TEXT":
+                    case "TIME":
                         insertStatement.append(String.format("'%s', ", value.getInsertDataType()));
                         break;
                     case "INT":
@@ -257,7 +274,7 @@ public class DataGenerator {
     // Creates the table for all of the primary keys of this type.
     public void commitTableToDatabase (String tableName) {
         try {
-            Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/data-generator", "root", "");
+            Connection conn = DriverManager.getConnection("jdbc:mysql://127.0.0.1:3306/" + dbName, user, pass);
             String createTable = String.format("CREATE TABLE %s (keyList VARCHAR(8) PRIMARY KEY);", tableName);
             PreparedStatement stat = conn.prepareStatement(createTable);
             stat.executeUpdate(createTable);
@@ -272,7 +289,7 @@ public class DataGenerator {
     public void commitPKToDB(String tableName, String primaryKey)
     {
         try {
-            Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/data-generator", "root", "");
+            Connection conn = DriverManager.getConnection("jdbc:mysql://127.0.0.1:3306/" + dbName, user, pass);
             PreparedStatement stat = conn.prepareStatement(String.format("INSERT INTO %s VALUES(?)", tableName));
             stat.setString(1, primaryKey);
             stat.executeUpdate();
@@ -288,7 +305,7 @@ public class DataGenerator {
     {
         ArrayList<String> allIds = new ArrayList<>();
         try {
-            Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/data-generator", "root", "");
+            Connection conn = DriverManager.getConnection("jdbc:mysql://127.0.0.1:3306/" + dbName, user, pass);
             PreparedStatement stat = conn.prepareStatement(String.format("SELECT * FROM %s", tableName));
             stat.executeQuery();
             ResultSet rs = stat.getResultSet();
@@ -304,52 +321,51 @@ public class DataGenerator {
     }
 
     // Testing
-    public static void main(String[] args)
-    {
+    public static void main(String[] args) {
         DataGenerator start = new DataGenerator();
 
         //////////////////////////////////////////// CREATE ALL OF THE TABLES //////////////////////////////////////////
 
         // Staff table
-        System.out.println(start.generateTable("Staff", true, new String[]{},  true, true,
+        System.out.println(start.generateTable("Staff", true, new String[]{}, true, true,
                 new ExtraColumn[]{
-                new ExtraColumn("role", "VARCHAR", "10", false),
-                new ExtraColumn("gross_salary_pm", "DECIMAL", "6,2", false),
-                new ExtraColumn("is_absent", "TINYINT", "1", false)}));
+                        new ExtraColumn("role", "VARCHAR", "10", false),
+                        new ExtraColumn("gross_salary_pm", "DECIMAL", "6,2", false),
+                        new ExtraColumn("is_absent", "TINYINT", "1", false)}));
 
         // Department table
         System.out.println(start.generateTable("Department", true, new String[]{}, false, false,
                 new ExtraColumn[]{
-                new ExtraColumn("department_name", "VARCHAR", "10", false ),
-                new ExtraColumn("department_salary_pa", "DECIMAL", "7,2", false)}));
+                        new ExtraColumn("department_name", "VARCHAR", "10", false),
+                        new ExtraColumn("department_salary_pa", "DECIMAL", "7,2", false)}));
 
         // Non academic table
         System.out.println(start.generateTable("Non_Academic", false, new String[]{"Staff", "Department"}, false, false,
                 new ExtraColumn[]{
-                new ExtraColumn("skill_bonus", "DECIMAL", "6,2", true)}));
+                        new ExtraColumn("skill_bonus", "DECIMAL", "6,2", true)}));
 
         // Staff income table
         System.out.println(start.generateTable("Staff_Wage", false, new String[]{"Staff"}, false, false,
                 new ExtraColumn[]{
-                new ExtraColumn("month", "DATE", "", false),
-                new ExtraColumn("net_month_salary", "DECIMAL", "7,2", false),
-                new ExtraColumn("absence_deduction", "DECIMAL", "6,2", false),
-                new ExtraColumn("tax_for_month", "DECIMAL", "6,2", false),
-                new ExtraColumn("meeting_bonus", "DECIMAL", "6,2", false)}));
+                        new ExtraColumn("month", "DATE", "", false),
+                        new ExtraColumn("net_month_salary", "DECIMAL", "7,2", false),
+                        new ExtraColumn("absence_deduction", "DECIMAL", "6,2", false),
+                        new ExtraColumn("tax_for_month", "DECIMAL", "6,2", false),
+                        new ExtraColumn("meeting_bonus", "DECIMAL", "6,2", false)}));
 
         // Staff Absence table
         System.out.println(start.generateTable("Absence", false, new String[]{"Staff"}, false, false,
                 new ExtraColumn[]{
-                new ExtraColumn("date_of_leave", "DATE", "", false, start.generateDate(2019, 4, 1, 2020, 1, 3)),
-                new ExtraColumn("date_of_return", "DATE", "", false, start.generateDate(2019, 4, 1, 2019, 1,3 )),
-                new ExtraColumn("duration_of_absence", "INT", "2", false, "0"),
-                new ExtraColumn("details_of_absence", "VARCHAR", "255", false, "Lorem Ipsum Dolor Dest")}));
+                        new ExtraColumn("date_of_leave", "DATE", "", false),
+                        new ExtraColumn("date_of_return", "DATE", "", false),
+                        new ExtraColumn("duration_of_absence", "INT", "2", false),
+                        new ExtraColumn("details_of_absence", "VARCHAR", "255", false)}));
 
         // Create the skills table
         System.out.println(start.generateTable("Skillset", true, new String[]{}, false, false,
                 new ExtraColumn[]{
-                new ExtraColumn("skill_worth", "DECIMAL", "6,2", false),
-                new ExtraColumn("skill_name", "VARCHAR", "20", false)}));
+                        new ExtraColumn("skill_worth", "DECIMAL", "6,2", false),
+                        new ExtraColumn("skill_name", "VARCHAR", "20", false)}));
 
         // Generate skills held values
         System.out.println(start.generateTable("Skills_Held", false, new String[]{"Skillset", "Staff"}, false, false, new ExtraColumn[]{}));
@@ -357,61 +373,103 @@ public class DataGenerator {
         // Generate academic staff table
         System.out.println(start.generateTable("Academic", false, new String[]{"Staff"}, false, false,
                 new ExtraColumn[]{
-                new ExtraColumn("curriculum_area", "VARCHAR", "20", false),
-                new ExtraColumn("teacher_level", "VARCHAR", "10", false),
-                new ExtraColumn("gross_salary_pa", "DECIMAL", "7,2", false)
-            }));
+                        new ExtraColumn("curriculum_area", "VARCHAR", "20", false),
+                        new ExtraColumn("teacher_level", "VARCHAR", "10", false),
+                        new ExtraColumn("gross_salary_pa", "DECIMAL", "7,2", false)
+                }));
+
+        // Create a curriculum Table
+        System.out.println(start.generateTable("Curriculum", true, new String[]{"Staff"}, false, false,
+                new ExtraColumn[]{
+                        new ExtraColumn("course_name", "VARCHAR", "20", false),
+                        new ExtraColumn("course_level", "VARCHAR", "10", false),
+                        new ExtraColumn("course_start_date", "DATE", "", false),
+                        new ExtraColumn("course_end_date", "DATE", "", false)
+                }));
+
+        // Create a coursework Table
+        System.out.println(start.generateTable("Coursework", true, new String[]{"Curriculum"}, false, false,
+                new ExtraColumn[]{
+                        new ExtraColumn("set_date", "DATE", "", false),
+                        new ExtraColumn("due_date", "DATE", "", false)
+                }));
+
+        // Create a subject table
+        System.out.println(start.generateTable("Subject", true, new String[]{"Curriculum"}, false, false,
+                new ExtraColumn[]{
+                        new ExtraColumn("subject_name", "VARCHAR", "20", false)}));
+
+        // Create a programme Table
+        System.out.println(start.generateTable("Programme", true, new String[]{"Subject", "Staff"}, false, false,
+                new ExtraColumn[]{
+                        new ExtraColumn("programme_title", "VARCHAR", "20", false),
+                        new ExtraColumn("programme_date", "DATE", "", false),
+                        new ExtraColumn("programme_time", "TIME", "", false),
+                        new ExtraColumn("programme_location", "VARCHAR", "20", false)
+                }));
+
+        // Create a tuition table
+        System.out.println(start.generateTable("Tuition", true, new String[]{}, false, false,
+                new ExtraColumn[]{
+                        new ExtraColumn("student_type", "VARCHAR", "20", false),
+                        new ExtraColumn("loan_total", "VARCHAR", "20", false)}));
+
+        // Create a student table (most complicated)
+        System.out.println(start.generateTable("Tuition", true, new String[]{}, false, false,
+                new ExtraColumn[]{
+                        new ExtraColumn("student_type", "VARCHAR", "20", false),
+                        new ExtraColumn("loan_total", "VARCHAR", "20", false)}));
 
         // Create any triggers for the tables
         System.out.println(
-        "CREATE TRIGGER create_staff_pay\n" +
-        "AFTER INSERT ON staff\n" +
-                "FOR EACH ROW\n" +
-        "INSERT\n" +
-            "staff_wage\n" +
-        "SET\n" +
-            "staff_wage.staff_id = NEW.staff_id,\n" +
-            "staff_wage.month = CURDATE(),\n" +
-            "staff_wage.absence_deduction = 0,\n" +
-            "staff_wage.tax_for_month = NEW.gross_salary_pm * 0.2,\n" +
-            "staff_wage.meeting_bonus = (SELECT COUNT(*) from staff) * 5,\n" +
-            "staff_wage.net_month_salary = (NEW.gross_salary_pm + staff_wage.meeting_bonus) - staff_wage.tax_for_month - staff_wage.absence_deduction;\n\n" +
+                "CREATE TRIGGER create_staff_pay\n" +
+                        "AFTER INSERT ON staff\n" +
+                        "FOR EACH ROW\n" +
+                        "INSERT\n" +
+                        "staff_wage\n" +
+                        "SET\n" +
+                        "staff_wage.staff_id = NEW.staff_id,\n" +
+                        "staff_wage.month = CURDATE(),\n" +
+                        "staff_wage.absence_deduction = 0,\n" +
+                        "staff_wage.tax_for_month = NEW.gross_salary_pm * 0.2,\n" +
+                        "staff_wage.meeting_bonus = (SELECT COUNT(*) from staff) * 5,\n" +
+                        "staff_wage.net_month_salary = (NEW.gross_salary_pm + staff_wage.meeting_bonus) - staff_wage.tax_for_month - staff_wage.absence_deduction;\n\n" +
 
-        "CREATE TRIGGER update_absence_deduction\n" +
-        "AFTER INSERT ON absence\n" +
-        "FOR EACH ROW\n" +
-        "UPDATE\n" +
-            "staff, staff_wage\n" +
-        "SET\n" +
-            "staff_wage.absence_deduction = Round((staff.gross_salary_pm * 12) / 365 * (SELECT COUNT(duration_of_absence) FROM absence WHERE NEW.staff_id = staff.staff_id AND NEW.duration_of_absence > 2))\n\n" +
-        "WHERE\n" +
-            "staff.staff_id = staff_wage.staff_id\n" +
-        "AND\n" +
-            "staff.staff_id = NEW.staff_id;\n\n" +
+                        "CREATE TRIGGER update_absence_deduction\n" +
+                        "AFTER INSERT ON absence\n" +
+                        "FOR EACH ROW\n" +
+                        "UPDATE\n" +
+                        "staff, staff_wage\n" +
+                        "SET\n" +
+                        "staff_wage.absence_deduction = Round((staff.gross_salary_pm * 12) / 365 * (SELECT COUNT(duration_of_absence) FROM absence WHERE NEW.staff_id = staff.staff_id AND NEW.duration_of_absence > 2))\n\n" +
+                        "WHERE\n" +
+                        "staff.staff_id = staff_wage.staff_id\n" +
+                        "AND\n" +
+                        "staff.staff_id = NEW.staff_id;\n\n" +
 
-        "CREATE TRIGGER update_skill_bonus\n" +
-        "AFTER INSERT ON skills_held\n" +
-        "FOR EACH ROW\n" +
-        "UPDATE\n" +
-            "non_academic, skillset, skills_held\n" +
-        "SET\n" +
-            "non_academic.skill_bonus = non_academic.skill_bonus + skillset.skill_worth\n" +
-        "WHERE\n" +
-            "NEW.skillset_id = skillset.skillset_id\n" +
-                "AND\n" +
-            "NEW.staff_id = non_academic.staff_id;\n\n" +
+                        "CREATE TRIGGER update_skill_bonus\n" +
+                        "AFTER INSERT ON skills_held\n" +
+                        "FOR EACH ROW\n" +
+                        "UPDATE\n" +
+                        "non_academic, skillset, skills_held\n" +
+                        "SET\n" +
+                        "non_academic.skill_bonus = non_academic.skill_bonus + skillset.skill_worth\n" +
+                        "WHERE\n" +
+                        "NEW.skillset_id = skillset.skillset_id\n" +
+                        "AND\n" +
+                        "NEW.staff_id = non_academic.staff_id;\n\n" +
 
-        "CREATE TRIGGER update_gross_monthly_salary\n" +
-        "AFTER UPDATE ON non_academic\n" +
-        "FOR EACH ROW\n" +
-        "UPDATE\n" +
-            "staff, department\n" +
-        "SET\n" +
-            "staff.gross_salary_pm = NEW.skill_bonus + Round(department.department_salary_pa / 12)\n" +
-        "WHERE\n" +
-            "NEW.department_id = department.department_id\n" +
-        "AND\n" +
-            "NEW.staff_id = staff.staff_id;\n\n"
+                        "CREATE TRIGGER update_gross_monthly_salary\n" +
+                        "AFTER UPDATE ON non_academic\n" +
+                        "FOR EACH ROW\n" +
+                        "UPDATE\n" +
+                        "staff, department\n" +
+                        "SET\n" +
+                        "staff.gross_salary_pm = NEW.skill_bonus + Round(department.department_salary_pa / 12)\n" +
+                        "WHERE\n" +
+                        "NEW.department_id = department.department_id\n" +
+                        "AND\n" +
+                        "NEW.staff_id = staff.staff_id;\n\n"
         );
 
 
@@ -419,64 +477,122 @@ public class DataGenerator {
 
         // Generate staff data
         for (int i = 0; i < 5; i++) {
-            start.insertStatements("Staff", true, new String[]{}, false,  true, true,
+            start.insertStatements("Staff", true, new String[]{}, false, 0, true, true,
                     new ExtraColumn[]{
-                    new ExtraColumn("role", "VARCHAR", "10", false, start.getRandomRole(new String[]{"HOD", "Teacher"})),
-                    new ExtraColumn("gross_salary_pm", "DECIMAL", "6,2", false, start.generateMoneyValue(100, 1000)),
-                    new ExtraColumn("is_absent", "TINYINT", "1", false, "0")});
+                            new ExtraColumn("role", "VARCHAR", "10", false, start.getRandomValueFromArray(new String[]{"HOD", "Teacher"})),
+                            new ExtraColumn("gross_salary_pm", "DECIMAL", "6,2", false, start.generateMoneyValue(100, 1000)),
+                            new ExtraColumn("is_absent", "TINYINT", "1", false, "0")});
         }
 
         // Generate department data
         for (int i = 0; i < 5; i++) {
-            start.insertStatements("Department", true, new String[]{}, false, false, false,
+            start.insertStatements("Department", true, new String[]{}, false, 0, false, false,
                     new ExtraColumn[]{
-                    new ExtraColumn("department_name", "VARCHAR", "10", false, "Admin"),
-                    new ExtraColumn("department_salary_pa", "DECIMAL", "7,2", false, start.generateMoneyValue(10000, 60000))});
+                            new ExtraColumn("department_name", "VARCHAR", "10", false, "Admin"),
+                            new ExtraColumn("department_salary_pa", "DECIMAL", "7,2", false, start.generateMoneyValue(10000, 60000))});
         }
 
         // Generate non academic data data
         for (int i = 0; i < 5; i++) {
-            start.insertStatements("Non_Academic", false, new String[]{"Staff", "Department"}, false, false, false,
+            start.insertStatements("Non_Academic", false, new String[]{"Staff", "Department"}, false, 0, false, false,
                     new ExtraColumn[]{
-                    new ExtraColumn("skill_bonus", "DECIMAL", "6,2", true, "0")});
+                            new ExtraColumn("skill_bonus", "DECIMAL", "6,2", true, start.getRandomTinyInt())});
         }
 
         // Generate absence data
         start.current = 0;
-        for (int i = 0; i < 10; i++){
-            start.insertStatements("Absence", false, new String[]{"Staff"}, true, false, false,
+        for (int i = 0; i < 10; i++) {
+            start.insertStatements("Absence", false, new String[]{"Staff"}, true, 0, false, false,
                     new ExtraColumn[]{
-                    new ExtraColumn("date_of_leave", "DATE", "", false, start.generateDate(2019, 4, 1, 2020, 1, 3)),
-                    new ExtraColumn("date_of_return", "DATE", "", false, start.generateDate(2019, 4, 1, 2019, 1,3 )),
-                    new ExtraColumn("duration_of_absence", "INT", "2", false, String.valueOf((int) (Math.random() * 5))),
-                    new ExtraColumn("details_of_absence", "VARCHAR", "255", false, "Lorem Ipsum Dolor Dest")});
+                            new ExtraColumn("date_of_leave", "DATE", "", false, start.generateDate(2019, 4, 1, 2020, 1, 3)),
+                            new ExtraColumn("date_of_return", "DATE", "", false, start.generateDate(2019, 4, 1, 2019, 1, 3)),
+                            new ExtraColumn("duration_of_absence", "INT", "2", false, String.valueOf((int) (Math.random() * 5))),
+                            new ExtraColumn("details_of_absence", "VARCHAR", "255", false, "Lorem Ipsum Dolor Dest")});
         }
 
         // Generate a skills table
         String[] skills = {"Typing", "Councilling", "Wrestling", "Fighting", "Gun"};
-        for (int i = 0; i < 5; i++)
-        {
-            start.insertStatements("Skillset", true, new String[]{}, false, false, false,
+        for (int i = 0; i < 5; i++) {
+            start.insertStatements("Skillset", true, new String[]{}, false, 0, false, false,
                     new ExtraColumn[]{
-                            new ExtraColumn("skill_worth", "DECIMAL", "6,2", false, start.generateMoneyValue(100,200)),
+                            new ExtraColumn("skill_worth", "DECIMAL", "6,2", false, start.generateMoneyValue(100, 200)),
                             new ExtraColumn("skill_name", "VARCHAR", "20", false, skills[i])});
         }
 
         // Generate a skills held table
         start.current = 0;
-        for (int i = 0; i < 10; i++)
-        {
-            start.insertStatements("Skills_Held", false, new String[]{"Skillset", "Staff"}, true, false, false,
+        for (int i = 0; i < 5; i++) {
+            start.insertStatements("Skills_Held", false, new String[]{"Skillset", "Staff"}, true, 0, false, false,
                     new ExtraColumn[]{});
         }
 
         // Generate non academic data data
         for (int i = 0; i < 5; i++) {
-            start.insertStatements("Academic", false, new String[]{"Staff"}, true, false, false,
+            start.insertStatements("Academic", false, new String[]{"Staff"}, false, 0, false, false,
                     new ExtraColumn[]{
-                    new ExtraColumn("curriculum_area", "VARCHAR", "20", false, start.getRandomRole(new String[]{"Computing", "English", "Maths"})),
-                    new ExtraColumn("teacher_level", "VARCHAR", "10", false, start.getRandomRole(new String[]{"1", "2", "3"})),
-                    new ExtraColumn("gross_salary_pa", "DECIMAL", "7,2", false, start.generateMoneyValue(10000, 20000))});
+                            new ExtraColumn("curriculum_area", "VARCHAR", "20", false, start.getRandomValueFromArray(new String[]{"Computing", "English", "Maths"})),
+                            new ExtraColumn("teacher_level", "VARCHAR", "10", false, start.getRandomValueFromArray(new String[]{"1", "2", "3"})),
+                            new ExtraColumn("gross_salary_pa", "DECIMAL", "7,2", false, start.generateMoneyValue(10000, 20000))});
+        }
+
+        // Generate curriculum data
+        for (int i = 0; i < 3; i++)
+        {
+            start.insertStatements("Curriculum", true, new String[]{"Staff"}, true, 0, false, false,
+                    new ExtraColumn[]{
+                            new ExtraColumn("course_name", "VARCHAR", "20", false, new String[]{"Computing", "English", "Maths"}[i]),
+                            new ExtraColumn("course_level", "VARCHAR", "10", false, start.getRandomValueFromArray(new String[]{"1", "2", "3", "4"})),
+                            new ExtraColumn("course_start_date", "DATE", "", false, start.generateDate(2019, 4, 1, 2019, 1, 3)),
+                            new ExtraColumn("course_end_date", "DATE", "", false, start.generateDate(2020, 4, 1, 2020, 4, 10))
+                    });
+        }
+
+        // Create a coursework Table
+        start.current = 0;
+        for (int i = 0; i < 6; i++)
+        {
+        start.insertStatements("Coursework", true, new String[]{"Curriculum"}, false, 0, false, false,
+                new ExtraColumn[]{
+                        new ExtraColumn("set_date", "DATE", "", false, start.generateDate(2019, 4, 1, 2019, 1, 3)),
+                        new ExtraColumn("due_date", "DATE", "", false, start.generateDate(2020, 4, 1, 2020, 4, 10))
+                });
+            if (i == 2)
+            {
+                start.current = 0;
+            }
+        }
+        start.current=0;
+        // Create subject data
+        for (int i = 0; i < 6; i++)
+        {
+            start.insertStatements("Subject", true, new String[]{"Curriculum"}, false, 0, false, false,
+                    new ExtraColumn[]{
+                            new ExtraColumn("subject_name", "VARCHAR", "6,2", false, new String[]{"Networking", "Shakespeare", "Algebra", "Programming", "Language", "Calculus"}[i])});
+            if (i == 2)
+            {
+                start.current=0;
+            }
+        }
+
+        // Create programme data
+        for (int i = 0; i < 10; i++)
+        {
+            start.insertStatements("Programme", true, new String[]{"Subject", "Staff"}, true, 0, false, false,
+                    new ExtraColumn[]{
+                            new ExtraColumn("programme_title", "VARCHAR", "20", false, start.getRandomValueFromArray(new String[]{"lorem", "ipsum", "dolor", "dest"})),
+                            new ExtraColumn("programme_date", "DATE", "", false, start.generateDate(2019, 1, 1)),
+                            new ExtraColumn("programme_time", "TIME", "", false, start.generateTime()),
+                            new ExtraColumn("programme_location", "VARCHAR", "20", false, start.getRandomValueFromArray(new String[]{"lorem", "ipsum", "dolor", "dest"}))
+                    });
+        }
+
+        // Create tuition data
+        for (int i = 0; i< 4; i++) {
+            start.insertStatements("Tuition", true, new String[]{}, false, 0, false, false,
+                    new ExtraColumn[]{
+                            new ExtraColumn("student_type", "VARCHAR", "20", false, new String[]{"Full_Time", "Distance", "FT-International", "Distance-International"}[i]),
+                            new ExtraColumn("loan_total", "DECIMAL", "7,2", false, new String[]{"6000.00", "3000.00", "9000.00", "6000.00"}[i])
+                    });
         }
     }
 }
@@ -485,4 +601,18 @@ public class DataGenerator {
 drop trigger create_staff_pay;
 drop trigger update_absence_deduction;
 drop trigger update_skill_bonus;
+ */
+
+/*
+testing:
+select * from
+Academic a
+inner join
+curriculum c
+on
+a.staff_id = c.staff_id
+inner join
+staff s
+on
+s.staff_id = a.staff_id
  */

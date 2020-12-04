@@ -19,12 +19,12 @@
 ## Using the application
 
 ##### An example of create table function
-System.out.println(start.generateTable("Staff", true, new String[]{},  true, true,
-                
-                new ExtraColumn[]{
-                new ExtraColumn("role", "VARCHAR", "10", false),
-                new ExtraColumn("gross_salary_pm", "DECIMAL", "6,2", false),
-                new ExtraColumn("is_absent", "TINYINT", "1", false)}));
+    System.out.println(start.generateTable("Staff", true, new String[]{},  true, true,                
+        new ExtraColumn[]{
+          new ExtraColumn("role", "VARCHAR", "10", false),
+          new ExtraColumn("gross_salary_pm", "DECIMAL", "6,2", false),
+          new ExtraColumn("is_absent", "TINYINT", "1", false)
+        }));
                 
 _This will return the script to generate a staff table and will create a table ready for the PK's in the database_
 
@@ -37,6 +37,7 @@ _This will return the script to generate a staff table and will create a table r
 4. Enter first name, last name and email columns automatically? (Boolean)
 5. Enter Contact number, date of birth and address information automatically? (Boolean)
 6. Do you need to enter any extra columns? details of this are specified below. (ExtraColumn Array)
+7. VarArgs for changing the names of the the foreign key columns
 
 > The ExtraColumn array must be instantiated, and the children inside are further instances of individual instantiated ExtraColumns. The parameters are as follows:
 1. The name of the new column (String)
@@ -47,16 +48,15 @@ _This will return the script to generate a staff table and will create a table r
 ### If you want to implement any triggers in your script, here is the place to do so as when running in mysql you can simply run everything at once to create a database
 
 ##### An example of insert statements function
-for (int i = 0; i < 5; i++)
-
-       {
-          start.insertStatements("Staff", true, new String[]{}, false,  0, true, true,
-                  
-                  new ExtraColumn[]{
+    for (int i = 0; i < 5; i++)
+     {
+        start.insertStatements("Staff", true, new String[]{}, false,  0, true, true,
+                new ExtraColumn[]{
                   new ExtraColumn("role", "VARCHAR", "10", false, start.getRandomRole(new String[ {"HOD","Teacher"})),
                   new ExtraColumn("gross_salary_pm", "DECIMAL", "6,2", false, start.generateMoneyValue(100, 1000)),
-                  new ExtraColumn("is_absent", "TINYINT", "1", false, "0")});
-        }
+                  new ExtraColumn("is_absent", "TINYINT", "1", false, "0")
+                });
+      }
 
 > In the __GENERATE ALL DATA__ Section, each insert statement should be encapsulated in a for loop for how many data points you want to create. The parameters for the insert statements are the same as the create table statement except for the statement after the foreign key array which accepts a boolean and returns either all foreign keys from a table (false) or random foreign keys from a table (true). the final (optional) generate data parameter which will populate your table with data.
 

@@ -20,6 +20,7 @@
 
 ##### An example of create table function
 System.out.println(start.generateTable("Staff", true, new String[]{},  true, true,
+                
                 new ExtraColumn[]{
                 new ExtraColumn("role", "VARCHAR", "10", false),
                 new ExtraColumn("gross_salary_pm", "DECIMAL", "6,2", false),
@@ -47,8 +48,10 @@ _This will return the script to generate a staff table and will create a table r
 
 ##### An example of insert statements function
 for (int i = 0; i < 5; i++)
-      {
+
+       {
           start.insertStatements("Staff", true, new String[]{}, false,  0, true, true,
+                  
                   new ExtraColumn[]{
                   new ExtraColumn("role", "VARCHAR", "10", false, start.getRandomRole(new String[ {"HOD","Teacher"})),
                   new ExtraColumn("gross_salary_pm", "DECIMAL", "6,2", false, start.generateMoneyValue(100, 1000)),

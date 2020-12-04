@@ -108,6 +108,12 @@ public class DataGenerator {
         return firstNameList[(int) (Math.random() * firstNameList.length)];
     }
 
+    // generate a random full name
+    public String getFullName()
+    {
+        return firstNameList[(int) (Math.random() * firstNameList.length)] + " " + lastNameList[(int) (Math.random() * lastNameList.length)];
+    }
+
     // Makes a random address
     public String generateAddress()
     {
@@ -204,7 +210,7 @@ public class DataGenerator {
     }
 
     // Get a value of one or zero
-    public String getRandomTinyInt () {return String.valueOf((int) (Math.random() * 1)); }
+    public String getRandomTinyInt () {return String.valueOf((int) (Math.random() * 2)); }
 
     // Execute the program, pass in params to decide which parts of the statement you want to include, the default FK
     // value should be an empty string array thus returning no fks
@@ -415,10 +421,47 @@ public class DataGenerator {
                         new ExtraColumn("loan_total", "VARCHAR", "20", false)}));
 
         // Create a student table (most complicated)
-        System.out.println(start.generateTable("Tuition", true, new String[]{}, false, false,
+        System.out.println(start.generateTable("Student", true, new String[]{"Tuition", "Curriculum"}, true, true,
                 new ExtraColumn[]{
-                        new ExtraColumn("student_type", "VARCHAR", "20", false),
-                        new ExtraColumn("loan_total", "VARCHAR", "20", false)}));
+                        new ExtraColumn("tuition_amount_paid", "DECIMAL", "7,2", false),
+                        new ExtraColumn("emergency_contact", "VARCHAR", "12", false),
+                        new ExtraColumn("emergency_phone_no", "VARCHAR", "20", false),
+                        new ExtraColumn("emergency_email", "VARCHAR", "50", false)}));
+
+        // Create a submission table
+        System.out.println(start.generateTable("Submission_Status", false, new String[]{"Student", "Coursework"}, false, false,
+                new ExtraColumn[]{
+                        new ExtraColumn("submitted", "TINYINT", "1", false)}));
+
+        // Create a programme attendance table
+        System.out.println(start.generateTable("Programme_Attendance", false, new String[]{"Programme", "Student"}, false, false,
+                new ExtraColumn[]{
+                        new ExtraColumn("attendance_status", "VARCHAR", "1", false)}));
+
+        // Create a Student meeting table
+        System.out.println(start.generateTable("Student_Meeting", true, new String[]{"Staff", "Student"}, false, false,
+                new ExtraColumn[]{
+                        new ExtraColumn("location_of_meeting", "VARCHAR", "20", false),
+                        new ExtraColumn("date_of_meeting", "DATE", "", false),
+                        new ExtraColumn("time_of_meeting", "TIME", "", false),
+                        new ExtraColumn("subject_of_meeting", "VARCHAR", "50", false)}));
+
+        // Create a meeting notes table
+        // Create a programme attendance table
+        System.out.println(start.generateTable("Meeting_notes", false, new String[]{"Student_Meeting"}, false, false,
+                new ExtraColumn[]{
+                        new ExtraColumn("notes", "TEXT", "255", false)}));
+
+        // Create a Locker table
+        System.out.println(start.generateTable("Locker", true, new String[]{}, false, false,
+                new ExtraColumn[]{
+                        new ExtraColumn("location", "VARCHAR", "20", false),
+                        new ExtraColumn("locker_owned", "TINYINT", "1", false)}));
+
+        // Create a full_time student table
+        System.out.println(start.generateTable("Full_Time_Student", true, new String[]{"Student", "Locker"}, false, false,
+                new ExtraColumn[]{
+                        new ExtraColumn("deposit_paid", "TINYINT", "1", false)}));
 
         // Create any triggers for the tables
         System.out.println(
@@ -469,7 +512,15 @@ public class DataGenerator {
                         "WHERE\n" +
                         "NEW.department_id = department.department_id\n" +
                         "AND\n" +
-                        "NEW.staff_id = staff.staff_id;\n\n"
+                        "NEW.staff_id = staff.staff_id;\n\n" +
+
+                        "CREATE TRIGGER update_locker_status\n" +
+                        "AFTER INSERT ON Full_Time_Student\n" +
+                        "FOR EACH ROW\n" +
+                        "UPDATE\n" +
+                        "Locker\n" +
+                        "SET\n" +
+                        "locker_owned = 1 WHERE NEW.locker_id = Locker.locker_id;"
         );
 
 
@@ -594,6 +645,69 @@ public class DataGenerator {
                             new ExtraColumn("loan_total", "DECIMAL", "7,2", false, new String[]{"6000.00", "3000.00", "9000.00", "6000.00"}[i])
                     });
         }
+
+        // Create a student table (most complicated)
+        for (int i = 0; i < 10; i++) {
+            start.insertStatements("Student", true, new String[]{"Tuition", "Curriculum"}, true, 0, true, true,
+                    new ExtraColumn[]{
+                            new ExtraColumn("tuition_amount_paid", "DECIMAL", "7,2", false, start.generateMoneyValue(0, 9000)),
+                            new ExtraColumn("emergency_contact", "VARCHAR", "12", false, start.getFullName()),
+                            new ExtraColumn("emergency_phone_no", "VARCHAR", "20", false, start.generateContactNo()),
+                            new ExtraColumn("emergency_email", "VARCHAR", "50", false, start.generateEmail(start.getFirstName(), start.getLastName(), "parent"))});
+        }
+
+        // Create submission status data
+        for (int i = 0; i < 10; i++)
+        {
+
+            start.insertStatements("Submission_Status", false, new String[]{"Student", "Coursework"}, true, 0, false, false,
+                    new ExtraColumn[]{
+                            new ExtraColumn("submission_status", "TINYINT", "1", false, start.getRandomTinyInt())});
+        }
+
+        // Create a programme attendance data
+        for (int i = 0; i < 20; i++) {
+            start.insertStatements("Programme_Attendance", false, new String[]{"Programme", "Student"}, true, 0, false, false,
+                    new ExtraColumn[]{
+                            new ExtraColumn("attendance_status", "VARCHAR", "1", false, start.getRandomValueFromArray(new String[]{"P", "A", "L", "E", "Q"}))});
+        }
+
+        // Create Student meeting data
+        for (int i = 0; i < 10; i++) {
+            start.insertStatements("Student_Meeting", true, new String[]{"Staff", "Student"}, true, 0, false, false,
+                    new ExtraColumn[]{
+                            new ExtraColumn("location_of_meeting", "VARCHAR", "20", false, start.getRandomValueFromArray(new String[]{"lorem", "ipsum", "dolor", "dest"})),
+                            new ExtraColumn("date_of_meeting", "DATE", "", false, start.generateDate(2019, 1, 1)),
+                            new ExtraColumn("time_of_meeting", "TIME", "", false, start.generateTime()),
+                            new ExtraColumn("subject_of_meeting", "VARCHAR", "50", false, start.getRandomValueFromArray(new String[]{"Attendance", "Grades", "Wellbeing", "Catch-up"}))
+                    });
+        }
+
+        start.current = 0;
+        // Create meeting notes data
+        for (int i = 0; i < 10; i++)
+        {
+            start.insertStatements("Meeting_notes", false, new String[]{"Student_Meeting"}, false, 0, false, false,
+                    new ExtraColumn[]{
+                            new ExtraColumn("notes", "TEXT", "255", false, loremGenerator.generateFunLorem())});
+        }
+
+        // Create Locker data
+        // Create a full_time student table
+        for (int i = 0; i < 20; i++)
+        {
+        start.insertStatements("Locker", true, new String[]{}, false, 0, false, false,
+                new ExtraColumn[]{
+                        new ExtraColumn("location", "VARCHAR", "20", false, start.getRandomValueFromArray(new String[]{"lorem", "ipsum", "dolor", "dolor"})),
+                        new ExtraColumn("locker_owned", "TINYINT", "1", false, "0")});
+        }
+
+        start.current = 0;
+        // Create a full_time student table
+        for (int i = 0; i < 5; i++)
+        start.insertStatements("Full_Time_Student", true, new String[]{"Student", "Locker"}, false, 0, false, false,
+                new ExtraColumn[]{
+                        new ExtraColumn("deposit_paid", "TINYINT", "1", false, start.getRandomTinyInt())});
     }
 }
 

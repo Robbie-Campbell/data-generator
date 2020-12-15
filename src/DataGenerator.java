@@ -6,13 +6,14 @@ just create statements, without trying to link to a mysql db, that can come late
 import java.sql.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class DataGenerator {
 
     private final String[] firstNameList, lastNameList, addressLine1, roadTitle, addressLine2;
     private String PKName;
     private static int index;
-    private static final String pass = System.getenv("javapass");
+    private static final String pass = "";
     private static final String user = "root";
     private static final String dbName = "data-generator";
     int current = 0;
@@ -24,7 +25,7 @@ public class DataGenerator {
                 "Farquart", "Graham", "Hewey", "Inyego", "Jake", "Kevin", "Lebron", "Mickey", "Nicholas", "Oscar", "Peter",
                 "Quincey", "Raymond", "Stephen", "Terry", "Ulysses", "Vincent", "Winston", "Yolanda", "Anabelle", "Brie",
                 "Chrissy", "Danielle", "Evelyne", "Farah", "Gene", "Holly", "India", "Janine", "Kelly", "Linda", "Molly",
-                "Nina", "Priscilla", "Gael", "Ludwig", "Zagreus", "Cameroono", "Natalie"};
+                "Nina", "Priscilla", "Gael", "Ludwig", "Zagreus", "Cameroono", "Natalie", "Geralt"};
 
         this.lastNameList = new String[]{"Arnold", "Brigham", "Campbell", "Donaldson", "Eggleton", "Farish", "Granada", "Hilbert",
                 "Ilverez", "Johnson", "Kepler", "Linson", "Montana", "Nishelson", "Organson", "Peterson", "Raymondson",
@@ -32,11 +33,13 @@ public class DataGenerator {
 
         // Create address arrays
         this.addressLine1 = new String[]{"Water", "Cribbage", "Richmond", "Stavingo", "Bolinko", "Crischenko", "Hearty",
-                "Gastavern", "Fishbrook", "Lincoln", "Ringston", "Crippsortion", "Margo", "Lorem", "Ipsum", "David"};
+                "Gastavern", "Fishbrook", "Lincoln", "Ringston", "Crippsortion", "Margo", "Lorem", "Ipsum", "David", "Cookie",
+                "Biker", "Green", "Pantonomo", "Grove", "Lamplight"};
 
         this.roadTitle = new String[]{"Provost", "Drive", "Close", "Road", "Avenue", "Street", "Gardens", "Grove", "Lane"};
 
-        this.addressLine2 = new String[]{"Dorset", "Somerset", "Heartfordshire", "Essex"};
+        this.addressLine2 = new String[]{"Dorset", "Somerset", "Heartfordshire", "Essex", "Upper London", "Riverland", "Cloud",
+                "Novigrad", "Crally", "Wessex"};
         index = this.getCurrentIndex();
     }
 
@@ -140,7 +143,7 @@ public class DataGenerator {
     }
 
     // Creates a table with listed parameters
-    public String generateTable(String tableName, boolean pk, String[] fk, Boolean name, Boolean personalInfo, ExtraColumn[] moreValues)
+    public String generateTable(String tableName, boolean pk, String[] fk, Boolean name, Boolean personalInfo, ExtraColumn[] moreValues, String... fkColumnNames)
     {
         StringBuilder statement = new StringBuilder(String.format("CREATE TABLE %s (", tableName.toLowerCase()));
         if (pk)
@@ -149,8 +152,16 @@ public class DataGenerator {
         }
         if (fk.length > 0)
         {
+            int fkIndex = 0;
             for (String key: fk)
-                statement.append(key).append("_id VARCHAR(8) NOT NULL,\n");
+            {
+                if (fkColumnNames.length == 0)
+                    statement.append(key).append("_id VARCHAR(8) NOT NULL,\n");
+                else {
+                    statement.append(fkColumnNames[fkIndex]).append("_id VARCHAR(8) NOT NULL,\n");
+                    fkIndex++;
+                }
+            }
         }
         if (name)
         {
@@ -158,7 +169,7 @@ public class DataGenerator {
         }
         if (personalInfo)
         {
-            statement.append("contact_no VARCHAR(11) NOT NULL,\nDOB DATE NOT NULL,\naddress_line_1 VARCHAR(50) NOT NULL,\n" +
+            statement.append("contact_no VARCHAR(13) NOT NULL,\nDOB DATE NOT NULL,\naddress_line_1 VARCHAR(50) NOT NULL,\n" +
                     "address_line_2 VARCHAR(50) NOT NULL,\npostcode VARCHAR(9) NOT NULL,\n");
         }
         if (moreValues.length > 0)
@@ -173,8 +184,14 @@ public class DataGenerator {
         }
         if (fk.length > 0)
         {
+            int fkIndex = 0;
             for (String s : fk) {
-                statement.append(String.format("FOREIGN KEY (%s_id) references %s(%s_id),\n", s, s, s));
+                if (fkColumnNames.length == 0)
+                    statement.append(String.format("FOREIGN KEY (%s_id) references %s(%s_id),\n", s, s, s));
+                else {
+                    statement.append(String.format("FOREIGN KEY (%s_id) references %s(%s_id),\n", fkColumnNames[fkIndex], s, s));
+                    fkIndex++;
+                }
             }
         }
         statement.setLength(statement.length() - 2);
@@ -219,10 +236,10 @@ public class DataGenerator {
     {
         this.PKName = tableTitle;
         index = this.getCurrentIndex();
-        String id = this.generateKey();
         String firstName = this.getFirstName();
+        String id = this.generateKey();
         String lastName = this.getLastName();
-        String email = generateEmail(firstName, lastName, this.generateKey());
+        String email = generateEmail(firstName, lastName, id);
         StringBuilder insertStatement = new StringBuilder(String.format("INSERT INTO %s VALUES (", tableTitle));
         if (pk) {
             insertStatement.append(String.format("'%s',", id));
@@ -246,7 +263,7 @@ public class DataGenerator {
         if (personalInfo)
         {
             insertStatement.append(String.format("'%s', DATE '%s', %s, ", this.generateContactNo(),
-                    this.generateDate(1960, 1, 1, 1980, 11, 28), this.generateAddress()));
+                    this.generateDate(1960, 1, 1, 40, 11, 28), this.generateAddress()));
         }
         if (moreValues.length > 0)
         {
@@ -335,26 +352,30 @@ public class DataGenerator {
         // Staff table
         System.out.println(start.generateTable("Staff", true, new String[]{}, true, true,
                 new ExtraColumn[]{
-                        new ExtraColumn("role", "VARCHAR", "10", false),
+                        new ExtraColumn("role", "VARCHAR", "7", false),
                         new ExtraColumn("gross_salary_pm", "DECIMAL", "6,2", false),
                         new ExtraColumn("is_absent", "TINYINT", "1", false)}));
+
+        // Manager table
+        System.out.println(start.generateTable("Manager", false, new String[]{"Staff", "Staff"}, false, false, new ExtraColumn[]{},
+                "Staff_member", "Manager"));
 
         // Department table
         System.out.println(start.generateTable("Department", true, new String[]{}, false, false,
                 new ExtraColumn[]{
-                        new ExtraColumn("department_name", "VARCHAR", "10", false),
-                        new ExtraColumn("department_salary_pa", "DECIMAL", "7,2", false)}));
+                        new ExtraColumn("department_name", "VARCHAR", "15", false),
+                        new ExtraColumn("department_salary_pa", "DECIMAL", "8,2", false)}));
 
         // Non academic table
         System.out.println(start.generateTable("Non_Academic", false, new String[]{"Staff", "Department"}, false, false,
                 new ExtraColumn[]{
-                        new ExtraColumn("skill_bonus", "DECIMAL", "6,2", true)}));
+                        new ExtraColumn("skill_bonus", "DECIMAL", "6,2", false)}));
 
         // Staff income table
         System.out.println(start.generateTable("Staff_Wage", false, new String[]{"Staff"}, false, false,
                 new ExtraColumn[]{
                         new ExtraColumn("month", "DATE", "", false),
-                        new ExtraColumn("net_month_salary", "DECIMAL", "7,2", false),
+                        new ExtraColumn("net_month_salary", "DECIMAL", "6,2", false),
                         new ExtraColumn("absence_deduction", "DECIMAL", "6,2", false),
                         new ExtraColumn("tax_for_month", "DECIMAL", "6,2", false),
                         new ExtraColumn("meeting_bonus", "DECIMAL", "6,2", false)}));
@@ -365,7 +386,7 @@ public class DataGenerator {
                         new ExtraColumn("date_of_leave", "DATE", "", false),
                         new ExtraColumn("date_of_return", "DATE", "", false),
                         new ExtraColumn("duration_of_absence", "INT", "2", false),
-                        new ExtraColumn("details_of_absence", "VARCHAR", "255", false)}));
+                        new ExtraColumn("details_of_absence", "TEXT", "255", false)}));
 
         // Create the skills table
         System.out.println(start.generateTable("Skillset", true, new String[]{}, false, false,
@@ -381,7 +402,7 @@ public class DataGenerator {
                 new ExtraColumn[]{
                         new ExtraColumn("curriculum_area", "VARCHAR", "20", false),
                         new ExtraColumn("teacher_level", "VARCHAR", "10", false),
-                        new ExtraColumn("gross_salary_pa", "DECIMAL", "7,2", false)
+                        new ExtraColumn("gross_salary_pa", "DECIMAL", "8,2", false)
                 }));
 
         // Create a curriculum Table
@@ -403,7 +424,7 @@ public class DataGenerator {
         // Create a subject table
         System.out.println(start.generateTable("Subject", true, new String[]{"Curriculum"}, false, false,
                 new ExtraColumn[]{
-                        new ExtraColumn("subject_name", "VARCHAR", "20", false)}));
+                        new ExtraColumn("subject_name", "VARCHAR", "12", false)}));
 
         // Create a programme Table
         System.out.println(start.generateTable("Programme", true, new String[]{"Subject", "Staff"}, false, false,
@@ -412,19 +433,19 @@ public class DataGenerator {
                         new ExtraColumn("programme_date", "DATE", "", false),
                         new ExtraColumn("programme_time", "TIME", "", false),
                         new ExtraColumn("programme_location", "VARCHAR", "20", false)
-                }));
+                }, "Subject", "Programme_Leader"));
 
         // Create a tuition table
         System.out.println(start.generateTable("Tuition", true, new String[]{}, false, false,
                 new ExtraColumn[]{
                         new ExtraColumn("student_type", "VARCHAR", "20", false),
-                        new ExtraColumn("loan_total", "VARCHAR", "20", false)}));
+                        new ExtraColumn("loan_total", "DECIMAL", "7,2", false)}));
 
         // Create a student table (most complicated)
         System.out.println(start.generateTable("Student", true, new String[]{"Tuition", "Curriculum"}, true, true,
                 new ExtraColumn[]{
                         new ExtraColumn("tuition_amount_paid", "DECIMAL", "7,2", false),
-                        new ExtraColumn("emergency_contact", "VARCHAR", "12", false),
+                        new ExtraColumn("emergency_contact", "VARCHAR", "40", false),
                         new ExtraColumn("emergency_phone_no", "VARCHAR", "20", false),
                         new ExtraColumn("emergency_email", "VARCHAR", "50", false)}));
 
@@ -459,9 +480,20 @@ public class DataGenerator {
                         new ExtraColumn("locker_owned", "TINYINT", "1", false)}));
 
         // Create a full_time student table
-        System.out.println(start.generateTable("Full_Time_Student", true, new String[]{"Student", "Locker"}, false, false,
+        System.out.println(start.generateTable("Full_Time_Student", false, new String[]{"Student", "Locker"}, false, false,
                 new ExtraColumn[]{
                         new ExtraColumn("deposit_paid", "TINYINT", "1", false)}));
+
+        // Create a international student table
+        System.out.println(start.generateTable("Distance_Student", false, new String[]{"Student", "Staff", "Staff"}, false, false,
+                new ExtraColumn[]{}, "student", "academic_tutor", "non_academic_tutor"));
+
+        // Create a distance student table
+        System.out.println(start.generateTable("International_Student", false, new String[]{"Student"}, false, false,
+                new ExtraColumn[]{
+                        new ExtraColumn("nationality", "VARCHAR", "20", false),
+                        new ExtraColumn("visa_number", "VARCHAR", "12", false),
+                        new ExtraColumn("passport_number", "VARCHAR", "12", false)}));
 
         // Create any triggers for the tables
         System.out.println(
@@ -475,7 +507,7 @@ public class DataGenerator {
                         "staff_wage.month = CURDATE(),\n" +
                         "staff_wage.absence_deduction = 0,\n" +
                         "staff_wage.tax_for_month = NEW.gross_salary_pm * 0.2,\n" +
-                        "staff_wage.meeting_bonus = (SELECT COUNT(*) from staff) * 5,\n" +
+                        "staff_wage.meeting_bonus = 0,\n" +
                         "staff_wage.net_month_salary = (NEW.gross_salary_pm + staff_wage.meeting_bonus) - staff_wage.tax_for_month - staff_wage.absence_deduction;\n\n" +
 
                         "CREATE TRIGGER update_absence_deduction\n" +
@@ -514,6 +546,18 @@ public class DataGenerator {
                         "AND\n" +
                         "NEW.staff_id = staff.staff_id;\n\n" +
 
+                        "CREATE TRIGGER update_staff_meeting_bonus\n" +
+                        "AFTER INSERT ON student_meeting\n" +
+                        "FOR EACH ROW\n" +
+                        "UPDATE\n" +
+                        "non_academic, staff_wage\n" +
+                        "SET\n" +
+                        "staff_wage.meeting_bonus = staff_wage.meeting_bonus + 5\n" +
+                        "WHERE\n" +
+                        "non_academic.staff_id = staff_wage.staff_id\n" +
+                        "AND\n" +
+                        "non_academic.staff_id = NEW.staff_id;\n" +
+
                         "CREATE TRIGGER update_locker_status\n" +
                         "AFTER INSERT ON Full_Time_Student\n" +
                         "FOR EACH ROW\n" +
@@ -527,7 +571,7 @@ public class DataGenerator {
         ///////////////////////////////////////////////// GENERATE ALL DATA ////////////////////////////////////////////
 
         // Generate staff data
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 10; i++) {
             start.insertStatements("Staff", true, new String[]{}, false, 0, true, true,
                     new ExtraColumn[]{
                             new ExtraColumn("role", "VARCHAR", "10", false, start.getRandomValueFromArray(new String[]{"HOD", "Teacher"})),
@@ -535,11 +579,22 @@ public class DataGenerator {
                             new ExtraColumn("is_absent", "TINYINT", "1", false, "0")});
         }
 
+        System.out.println(
+                "INSERT INTO Manager VALUES ('STA00001', 'STA0003');\n" +
+                "INSERT INTO Manager VALUES ('STA00002', 'STA0004');\n" +
+                "INSERT INTO Manager VALUES ('STA00003', 'STA00005');\n" +
+                "INSERT INTO Manager VALUES ('STA00004', 'STA00005');\n" +
+                "INSERT INTO Manager VALUES ('STA00006', 'STA00007');\n" +
+                "INSERT INTO Manager VALUES ('STA00007', 'STA00009');\n" +
+                "INSERT INTO Manager VALUES ('STA00008', 'STA00010');\n" +
+                "INSERT INTO Manager VALUES ('STA00009', 'STA00010');\n\n"
+        );
+
         // Generate department data
         for (int i = 0; i < 5; i++) {
             start.insertStatements("Department", true, new String[]{}, false, 0, false, false,
                     new ExtraColumn[]{
-                            new ExtraColumn("department_name", "VARCHAR", "10", false, "Admin"),
+                            new ExtraColumn("department_name", "VARCHAR", "10", false, new String[]{"Admin", "Janitorial", "Medical", "Councillor", "IT"}[i]),
                             new ExtraColumn("department_salary_pa", "DECIMAL", "7,2", false, start.generateMoneyValue(10000, 60000))});
         }
 
@@ -547,7 +602,7 @@ public class DataGenerator {
         for (int i = 0; i < 5; i++) {
             start.insertStatements("Non_Academic", false, new String[]{"Staff", "Department"}, false, 0, false, false,
                     new ExtraColumn[]{
-                            new ExtraColumn("skill_bonus", "DECIMAL", "6,2", true, start.getRandomTinyInt())});
+                            new ExtraColumn("skill_bonus", "DECIMAL", "6,2", false, "0")});
         }
 
         // Generate absence data
@@ -562,7 +617,7 @@ public class DataGenerator {
         }
 
         // Generate a skills table
-        String[] skills = {"Typing", "Councilling", "Wrestling", "Fighting", "Gun"};
+        String[] skills = {"Typing", "Counselling", "Office", "Language", "Cleaning"};
         for (int i = 0; i < 5; i++) {
             start.insertStatements("Skillset", true, new String[]{}, false, 0, false, false,
                     new ExtraColumn[]{
@@ -579,7 +634,7 @@ public class DataGenerator {
 
         // Generate non academic data data
         for (int i = 0; i < 5; i++) {
-            start.insertStatements("Academic", false, new String[]{"Staff"}, false, 0, false, false,
+            start.insertStatements("Academic", false, new String[]{"Staff"}, false, 5, false, false,
                     new ExtraColumn[]{
                             new ExtraColumn("curriculum_area", "VARCHAR", "20", false, start.getRandomValueFromArray(new String[]{"Computing", "English", "Maths"})),
                             new ExtraColumn("teacher_level", "VARCHAR", "10", false, start.getRandomValueFromArray(new String[]{"1", "2", "3"})),
@@ -704,10 +759,28 @@ public class DataGenerator {
 
         start.current = 0;
         // Create a full_time student table
-        for (int i = 0; i < 5; i++)
-        start.insertStatements("Full_Time_Student", true, new String[]{"Student", "Locker"}, false, 0, false, false,
-                new ExtraColumn[]{
-                        new ExtraColumn("deposit_paid", "TINYINT", "1", false, start.getRandomTinyInt())});
+        for (int i = 0; i < 5; i++) {
+            start.insertStatements("Full_Time_Student", false, new String[]{"Student", "Locker"}, false, 0, false, false,
+                    new ExtraColumn[]{
+                            new ExtraColumn("deposit_paid", "TINYINT", "1", false, start.getRandomTinyInt())});
+        }
+
+        start.current = 0;
+        // Create a international student table
+        for (int i = 0; i < 5; i++) {
+            start.insertStatements("Distance_Student", false, new String[]{"Student", "Staff", "Staff"}, true, 0, false, false,
+                    new ExtraColumn[]{});
+        }
+
+        start.current = 0;
+        // Create a distance student table
+        for (int i = 0; i < 5; i++) {
+            start.insertStatements("International_Student", false, new String[]{"Student"}, true, 0, false, false,
+                    new ExtraColumn[]{
+                            new ExtraColumn("nationality", "VARCHAR", "20", false, start.getRandomValueFromArray(new String[]{"Scotland", "Venezuela", "Zimbabwe", "Chad"})),
+                            new ExtraColumn("visa_number", "VARCHAR", "12", false, start.generateContactNo()),
+                            new ExtraColumn("passport_number", "VARCHAR", "12", false, start.generateContactNo())});
+        }
     }
 }
 

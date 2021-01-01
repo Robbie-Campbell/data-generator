@@ -783,23 +783,3 @@ public class DataGenerator {
         }
     }
 }
-
-/*
-drop trigger create_staff_pay;
-drop trigger update_absence_deduction;
-drop trigger update_skill_bonus;
- */
-
-/*
-testing:
-select * from
-Academic a
-inner join
-curriculum c
-on
-a.staff_id = c.staff_id
-inner join
-staff s
-on
-s.staff_id = a.staff_id
- */
